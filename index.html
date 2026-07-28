@@ -648,7 +648,19 @@ async function startCam(){
   camSetStatus("Initialisation de la caméra…");
   try{
     if(typeof ZXing==="undefined") throw new Error("Bibliothèque ZXing non chargée — vérifiez votre connexion Internet.");
-    codeReader=new ZXing.BrowserMultiFormatReader();
+
+    // Sans hints explicites, ZXing rate souvent les Code128 (utilisés par GS1-128)
+    // lus depuis un flux caméra : on force les formats attendus + TRY_HARDER.
+    const hints=new Map();
+    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS,[
+      ZXing.BarcodeFormat.CODE_128,
+      ZXing.BarcodeFormat.EAN_13,
+      ZXing.BarcodeFormat.EAN_8,
+      ZXing.BarcodeFormat.CODE_39,
+      ZXing.BarcodeFormat.ITF,
+    ]);
+    hints.set(ZXing.DecodeHintType.TRY_HARDER,true);
+    codeReader=new ZXing.BrowserMultiFormatReader(hints,150);
 
     // Sélection caméra arrière via enumerateDevices (sans listVideoInputDevices)
     let deviceId=undefined;
@@ -664,15 +676,15 @@ async function startCam(){
     }catch(e){ /* pas de permission encore, on laisse ZXing gérer */ }
 
     // Si pas de deviceId trouvé, forcer caméra arrière via constraints
+    // Résolution demandée en 16/9 large pour laisser une meilleure marge de netteté au code-barres
     const constraints=deviceId
-      ? {video:{deviceId:{exact:deviceId}}}
-      : {video:{facingMode:{ideal:"environment"}}};
+      ? {video:{deviceId:{exact:deviceId},width:{ideal:1920},height:{ideal:1080}}}
+      : {video:{facingMode:{ideal:"environment"},width:{ideal:1920},height:{ideal:1080}}};
 
-    // Démarre le flux vidéo manuellement pour appliquer les constraints
+    // getUserMedia manuel pour appliquer nos contraintes (résolution, caméra arrière),
+    // puis on laisse decodeFromStream attacher lui-même le flux à la vidéo et démarrer la lecture.
     camStream=await navigator.mediaDevices.getUserMedia(constraints);
     const video=$("camVideo");
-    video.srcObject=camStream;
-    await video.play();
 
     camSetStatus("Pointez vers le code-barres…");
     camRunning=true;
