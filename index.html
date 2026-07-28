@@ -9,21 +9,23 @@
 <script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
 <style>
   :root{
-    --bg:#0f141b;--bg-2:#151c26;--bg-3:#1b2430;--line:#26313f;--line-soft:#1e2732;
-    --ink:#e8edf3;--ink-dim:#9aa7b6;--ink-faint:#64707e;
-    --teal:#3fd6c4;--teal-deep:#1f8f83;--amber:#f0a63c;--violet:#8b7be8;--red:#f0645f;--green:#4bd07f;
-    --scan:#12202b;--shadow:0 10px 30px -18px rgba(0,0,0,.8);
-    --app-w:430px;--app-h:932px;--tabbar-h:64px;
+    --bg:#000000;--bg-2:#1c1c1e;--bg-3:#2c2c2e;--bg-4:#3a3a3c;
+    --line:rgba(255,255,255,.14);--line-soft:rgba(255,255,255,.09);
+    --ink:#f5f5f7;--ink-dim:#98989d;--ink-faint:#68686d;
+    --teal:#3fd6c4;--teal-deep:#1f8f83;--amber:#f0a63c;--violet:#8b7be8;--red:#ff5b52;--green:#4bd07f;
+    --scan:#1c1c1e;--shadow:0 12px 28px -16px rgba(0,0,0,.7);
+    --app-w:430px;--app-h:932px;--tabbar-h:70px;
   }
-  *{box-sizing:border-box}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0}
   body{
     background:
-      radial-gradient(1200px 480px at 78% -8%,rgba(63,214,196,.08),transparent 60%),
-      radial-gradient(900px 420px at 8% 108%,rgba(139,123,232,.07),transparent 60%),
+      radial-gradient(1200px 480px at 78% -8%,rgba(63,214,196,.10),transparent 60%),
+      radial-gradient(900px 420px at 8% 108%,rgba(139,123,232,.08),transparent 60%),
       var(--bg);
-    color:var(--ink);font-family:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
-    font-size:15px;line-height:1.45;-webkit-text-size-adjust:100%;
+    color:var(--ink);
+    font-family:-apple-system,"SF Pro Text",system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    font-size:15.5px;line-height:1.42;-webkit-text-size-adjust:100%;-webkit-font-smoothing:antialiased;
   }
   /* Coquille app mobile — dimensionnée comme un iPhone (430×932, ex. iPhone Pro Max) */
   .wrap{
@@ -31,152 +33,200 @@
     display:flex;flex-direction:column;overflow:hidden;background:var(--bg);
   }
   header.top{
-    flex:0 0 auto;display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;
-    padding:calc(14px + env(safe-area-inset-top)) 18px 14px;border-bottom:1px solid var(--line);
+    flex:0 0 auto;padding:calc(10px + env(safe-area-inset-top)) 18px 12px;
+    border-bottom:1px solid var(--line-soft);
   }
-  .brand h1{font-size:21px;margin:0;font-weight:800;letter-spacing:.3px}
+  header.top .headrow{display:flex;flex-direction:column;gap:10px}
+  .brand h1{font-size:28px;margin:0;font-weight:800;letter-spacing:-.5px;white-space:nowrap}
   .brand h1 .dot{color:var(--teal)}
-  .counter{margin-left:auto;display:flex;gap:20px}
-  .stat{text-align:right}
-  .stat b{font-size:24px;font-weight:800;line-height:1;display:block}
+  .brand p{margin:2px 0 0;font-size:12px;color:var(--ink-faint);font-weight:500}
+  .counter{display:flex;gap:8px}
+  .stat{text-align:center;background:var(--bg-2);border-radius:12px;padding:6px 12px;min-width:54px}
+  .stat b{font-size:18px;font-weight:800;line-height:1.1;display:block;font-variant-numeric:tabular-nums}
   .stat.pal b{color:var(--teal)}
   .stat.qte b{color:var(--amber)}
-  .stat span{font-size:10px;text-transform:uppercase;letter-spacing:.14em;color:var(--ink-faint)}
-  main.content{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 16px 24px}
-  /* Barre d'onglets style app native, ancrée en bas */
+  .stat span{font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-faint);font-weight:700}
+  main.content{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 14px 24px}
+
+  /* Barre d'onglets style app native, ancrée en bas, effet verre dépoli */
   nav.tabs{
-    flex:0 0 auto;display:flex;gap:2px;background:var(--bg-2);border-top:1px solid var(--line);
-    padding:6px 6px calc(6px + env(safe-area-inset-bottom));
+    flex:0 0 auto;display:flex;gap:2px;
+    background:rgba(28,28,30,.86);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);
+    border-top:1px solid var(--line-soft);
+    padding:8px 6px calc(6px + env(safe-area-inset-bottom));
   }
   nav.tabs button{
     flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
-    border:none;background:transparent;padding:7px 4px 6px;font-size:10.5px;font-weight:600;
+    border:none;background:transparent;padding:6px 4px;font-size:10px;font-weight:600;
     color:var(--ink-faint);cursor:pointer;border-radius:10px;transition:.15s;min-height:52px;
   }
-  nav.tabs button .icon{font-size:20px;line-height:1}
-  nav.tabs button:hover{color:var(--ink-dim);background:rgba(255,255,255,.03)}
-  nav.tabs button.active{color:var(--teal);background:rgba(63,214,196,.1)}
+  nav.tabs button .icon{font-size:22px;line-height:1;transition:transform .15s}
+  nav.tabs button:active .icon{transform:scale(.88)}
+  nav.tabs button.active{color:var(--teal)}
+  nav.tabs button.active .icon{filter:drop-shadow(0 0 8px rgba(63,214,196,.5))}
+
   /* Sur grand écran : simule un cadre iPhone centré, l'app garde ses dimensions réelles */
   /* (valeur en dur : les media queries n'acceptent pas var() dans leurs conditions) */
   @media(min-width:431px){
     body{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
     .wrap{
       height:min(var(--app-h),92vh);border-radius:44px;border:1px solid var(--line);
-      box-shadow:0 40px 90px -24px rgba(0,0,0,.75),0 0 0 8px #05070a;
+      box-shadow:0 40px 90px -24px rgba(0,0,0,.75),0 0 0 8px #050505;
     }
-    header.top{padding-top:22px}
+    header.top{padding-top:20px}
   }
   section.view{display:none}
   section.view.active{display:block;animation:fade .25s ease}
   @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
-  .panel{background:var(--bg-2);border:1px solid var(--line);border-radius:13px;box-shadow:var(--shadow);padding:20px;margin-bottom:18px}
-  .scanrow{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}
+  .panel{background:var(--bg-2);border:1px solid var(--line-soft);border-radius:16px;padding:16px;margin-bottom:14px}
+  .section-label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-faint);margin:2px 2px 10px;display:flex;align-items:center;justify-content:space-between;gap:8px}
   .field{display:flex;flex-direction:column;gap:6px}
   .field label{font-size:11px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.1em}
-  #scan{font-size:18px;padding:13px 15px;border:1.5px solid var(--teal-deep);border-radius:10px;background:var(--scan);color:var(--ink);width:min(470px,72vw);font-family:ui-monospace,Menlo,Consolas,monospace;outline:none}
-  #scan:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(63,214,196,.15)}
-  #qty{font-size:18px;padding:13px 15px;border:1.5px solid #7a5518;border-radius:10px;width:130px;background:#1e1810;color:var(--ink);outline:none}
-  #qty:focus{border-color:var(--amber);box-shadow:0 0 0 3px rgba(240,166,60,.15)}
-  .hint{font-size:12.5px;color:var(--ink-dim);margin-top:10px}
-  .hint b{color:var(--ink)}
-  .decoded{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:11px;margin-top:16px}
-  .decoded .cell{border:1px solid var(--line);border-radius:10px;padding:9px 12px;background:var(--bg-3)}
-  .decoded .cell .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-faint)}
-  .decoded .cell .v{font-size:15px;font-weight:600;margin-top:3px;word-break:break-word}
-  .decoded .cell.bad .v{color:var(--red)}
-  .decoded .cell.accent .v{color:var(--teal)}
 
-  /* Filtres */
-  .filterbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:flex-end}
-  .filterbar select,.filterbar input[type=text]{
-    background:var(--bg-3);border:1px solid var(--line);color:var(--ink);border-radius:8px;
-    padding:7px 11px;font-size:13.5px;font-family:inherit;outline:none;cursor:pointer;
+  /* Barre de saisie façon "search bar" iOS : champ + caméra dans un même bloc */
+  .scanbar{display:flex;align-items:stretch;gap:8px}
+  .scanbar-field{
+    flex:1;display:flex;align-items:center;gap:8px;background:var(--scan);
+    border:1.5px solid var(--line);border-radius:14px;padding:0 6px 0 14px;min-width:0;
   }
-  .filterbar select:focus,.filterbar input[type=text]:focus{border-color:var(--teal-deep)}
-  .filterbar label{font-size:11px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.09em;display:flex;flex-direction:column;gap:5px}
-  .filtag{font-size:12px;padding:3px 10px;background:rgba(63,214,196,.12);color:var(--teal);border-radius:6px;border:1px solid var(--teal-deep)}
+  .scanbar-field .ic{font-size:15px;color:var(--ink-faint);flex-shrink:0}
+  .scanbar-field:focus-within{border-color:var(--teal)}
+  #scan{
+    flex:1;min-width:0;font-size:16px;padding:13px 6px;border:none;background:transparent;
+    color:var(--ink);font-family:ui-monospace,Menlo,Consolas,monospace;outline:none;
+  }
+  #scan::placeholder{font-family:-apple-system,system-ui,sans-serif;color:var(--ink-faint)}
+  .cam-btn{
+    border:none;background:var(--teal);color:#04231f;flex-shrink:0;width:48px;border-radius:14px;
+    font-size:20px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;transition:.15s;
+  }
+  .cam-btn:active{transform:scale(.92)}
 
-  table{width:100%;border-collapse:collapse;font-size:13.5px}
-  th,td{padding:9px 11px;text-align:left;vertical-align:middle}
-  thead th{font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;color:var(--ink-faint);background:var(--bg-3);position:sticky;top:0;z-index:1;border-bottom:1px solid var(--line)}
-  tbody td{border-bottom:1px solid var(--line-soft)}
-  tbody tr:hover td{background:rgba(63,214,196,.04)}
-  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
-  .tablewrap{max-height:54vh;overflow:auto;border:1px solid var(--line);border-radius:10px}
+  /* Quantité : saisie + stepper +/- pour un ajustement rapide sur le quai */
+  .qtyrow{display:flex;align-items:center;gap:10px;margin-top:12px}
+  .qtyrow label{font-size:11px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.09em;flex-shrink:0}
+  .stepper{display:flex;align-items:stretch;background:var(--bg-3);border:1.5px solid var(--line);border-radius:12px;overflow:hidden;flex:1}
+  .stepper button{width:44px;border:none;background:transparent;color:var(--teal);font-size:20px;font-weight:700;cursor:pointer;flex-shrink:0}
+  .stepper button:active{background:rgba(63,214,196,.14)}
+  #qty{
+    flex:1;min-width:0;text-align:center;font-size:17px;font-weight:700;border:none;
+    background:transparent;color:var(--ink);outline:none;font-variant-numeric:tabular-nums;
+    -moz-appearance:textfield;padding:11px 4px;
+  }
+  #qty::-webkit-outer-spin-button,#qty::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+
+  .btn-add{
+    margin-top:12px;width:100%;border:none;background:var(--teal);color:#04231f;
+    padding:14px;border-radius:14px;font-size:16px;font-weight:800;cursor:pointer;transition:.15s;
+  }
+  .btn-add:active{transform:scale(.985);filter:brightness(.96)}
+
+  .hint{font-size:12px;color:var(--ink-faint);margin-top:12px;line-height:1.5}
+  .hint b{color:var(--ink-dim)}
+
+  .decoded{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}
+  .decoded .cell{border:1px solid var(--line-soft);border-radius:11px;padding:9px 12px;background:var(--bg-3)}
+  .decoded .cell.accent{grid-column:1 / -1}
+  .decoded .cell .k{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--ink-faint);font-weight:700}
+  .decoded .cell .v{font-size:14.5px;font-weight:700;margin-top:3px;word-break:break-word}
+  .decoded .cell.bad .v{color:var(--red)}
+  .decoded .cell.accent .v{color:var(--teal);font-size:16px}
+
+  /* Filtres — pilules façon menu iOS, un contrôle par ligne pour rester lisible */
+  .filterbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+  .searchpill{
+    display:flex;align-items:center;gap:8px;background:var(--bg-3);border:1px solid var(--line-soft);
+    border-radius:12px;padding:0 12px;flex:1 1 100%;
+  }
+  .searchpill .ic{font-size:13px;color:var(--ink-faint)}
+  .searchpill input{flex:1;border:none;background:transparent;color:var(--ink);font-size:14px;padding:10px 0;outline:none;font-family:inherit}
+  .filterbar select{
+    flex:1 1 100%;background:var(--bg-3);border:1px solid var(--line-soft);color:var(--ink);border-radius:12px;
+    padding:10px 12px;font-size:13.5px;font-family:inherit;outline:none;cursor:pointer;font-weight:600;
+  }
+  .filterbar select:focus{border-color:var(--teal-deep)}
+  .filtag{font-size:11px;padding:4px 10px;background:rgba(63,214,196,.14);color:var(--teal);border-radius:8px;font-weight:700;flex-shrink:0}
+
+  /* Listes façon iOS (grouped list) — remplacent les tableaux, illisibles sur mobile */
+  .list{background:var(--bg-2);border:1px solid var(--line-soft);border-radius:16px;overflow:hidden}
+  .row{display:flex;align-items:center;gap:11px;padding:11px 14px}
+  .row:not(:last-child){border-bottom:1px solid var(--line-soft)}
+  .row-lead{
+    width:24px;height:24px;border-radius:50%;background:var(--bg-3);color:var(--ink-faint);
+    font-size:10.5px;font-weight:800;display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;font-variant-numeric:tabular-nums;
+  }
+  .row-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+  .row-title{font-weight:700;font-size:14.5px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .row-sub{font-size:12.5px;color:var(--ink-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .row-meta{font-size:11px;color:var(--ink-faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .row-trail{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0}
+  .trail-num{font-size:14.5px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+  .trail-num.amber{color:var(--amber)}
+  .trail-unit{font-size:9.5px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;margin-left:2px}
+  .row-del{background:transparent;border:none;color:var(--ink-faint);font-size:12px;cursor:pointer;padding:3px 5px;flex-shrink:0}
+  .row-del:active{color:var(--red)}
   .lot{font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--violet)}
   .code{font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--teal)}
-  .seq{color:var(--ink-faint);font-variant-numeric:tabular-nums}
-  .pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11.5px;font-weight:600}
-  .pill.bad{background:rgba(240,100,95,.15);color:var(--red)}
+  .pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:10.5px;font-weight:700}
+  .pill.bad{background:rgba(255,91,82,.15);color:var(--red)}
 
-  /* Edition inline quantité */
-  .qty-cell{cursor:pointer;min-width:50px}
-  .qty-cell:hover{color:var(--amber)}
-  .qty-input{width:70px;background:var(--bg-3);border:1.5px solid var(--amber);color:var(--ink);
-    border-radius:6px;padding:3px 7px;font-size:13.5px;font-family:inherit;outline:none;text-align:right}
+  /* Édition inline quantité (clic sur la valeur) */
+  .qty-cell{cursor:pointer;font-size:18px;font-weight:800;color:var(--amber);font-variant-numeric:tabular-nums}
+  .qty-cell:active{opacity:.65}
+  .qty-input{width:64px;background:var(--bg-3);border:1.5px solid var(--amber);color:var(--ink);
+    border-radius:8px;padding:4px 8px;font-size:15px;font-family:inherit;outline:none;text-align:right;font-weight:700}
 
-  .btn{border:1px solid var(--teal-deep);background:linear-gradient(180deg,#1c7a70,#166b62);color:#eafffb;padding:10px 17px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;transition:.15s}
-  .btn:hover{filter:brightness(1.12)}
-  .btn:active{transform:translateY(1px)}
-  .btn.ghost{background:transparent;color:var(--teal);border-color:var(--line)}
-  .btn.ghost:hover{border-color:var(--teal)}
-  .btn.warn{background:transparent;border-color:#6e2f2d;color:var(--red)}
-  .btn.save{background:linear-gradient(180deg,#2a8f57,#217048);border-color:#2a8f57;color:#eafff1}
-  .btnbar{display:flex;gap:11px;flex-wrap:wrap;margin-top:16px}
-  .edit{border:1px solid var(--line);border-radius:8px;padding:10px 11px;font-size:15px;width:100%;font-family:inherit;background:var(--bg-2);color:var(--ink);outline:none}
+  /* Boutons — "filled" pour l'action principale, "tinted" pour le reste, à la façon iOS */
+  .btn{border:none;background:rgba(63,214,196,.13);color:var(--teal);padding:11px 16px;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;transition:.15s}
+  .btn:active{transform:scale(.97);filter:brightness(1.15)}
+  .btn.ghost{background:var(--bg-3);color:var(--ink-dim)}
+  .btn.warn{background:rgba(255,91,82,.13);color:var(--red)}
+  .btn.save{background:var(--teal);color:#04231f}
+  .btnbar{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px}
+  .edit{border:1px solid var(--line);border-radius:10px;padding:11px 12px;font-size:15px;width:100%;font-family:inherit;background:var(--bg-3);color:var(--ink);outline:none}
   .edit:focus{border-color:var(--teal-deep)}
   .edit.mono{font-family:ui-monospace,Menlo,Consolas,monospace;letter-spacing:.02em}
-  .subtitle{font-size:15px;font-weight:700;margin:2px 0 14px;display:flex;align-items:center;gap:9px}
-  .subtitle::before{content:"";width:4px;height:17px;background:var(--teal);border-radius:3px;display:inline-block}
+  .subtitle{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin:2px 2px 10px;color:var(--ink-faint)}
 
   /* Onglet Articles — une carte par article plutôt qu'un tableau serré, illisible sur mobile */
-  .artlist{display:flex;flex-direction:column;gap:12px}
-  .art-card{background:var(--bg-3);border:1px solid var(--line);border-radius:13px;padding:14px;display:flex;flex-direction:column;gap:10px}
+  .artlist{display:flex;flex-direction:column;gap:10px}
+  .art-card{background:var(--bg-2);border:1px solid var(--line-soft);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:9px}
   .art-card-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
-  .art-num{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint)}
-  .art-card .field{gap:5px}
-  .art-card .field label{font-size:10.5px}
-  .art-del{padding:6px 12px;font-size:12.5px}
+  .art-num{font-size:10.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-faint)}
+  .art-card .field{gap:4px}
+  .art-card .field label{font-size:10px}
+  .art-del{padding:5px 11px;font-size:12px}
   .art-empty{padding:34px 14px;text-align:center;color:var(--ink-faint)}
 
-  /* Arbre hiérarchique */
-  tr.lvl-art td{background:linear-gradient(90deg,rgba(63,214,196,.10),transparent 70%);border-top:1px solid var(--teal-deep);font-weight:700}
-  tr.lvl-art .artname{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-  tr.lvl-art .chip{font-size:10.5px;font-weight:700;padding:2px 9px;border-radius:6px;background:rgba(63,214,196,.14);color:var(--teal);font-family:ui-monospace,monospace}
-  tr.lvl-art .meta{margin-left:auto;font-weight:600;color:var(--ink-dim);font-size:12.5px}
-  tr.lvl-lot td{background:rgba(139,123,232,.05)}
-  tr.lvl-lot .lotcell{padding-left:26px;position:relative}
-  tr.lvl-lot .lotcell::before{content:"";position:absolute;left:12px;top:50%;width:8px;height:1px;background:var(--violet);opacity:.6}
-  tr.lvl-pal .palcell{padding-left:48px;position:relative;color:var(--ink-dim)}
-  tr.lvl-pal .palcell::before{content:"";position:absolute;left:34px;top:50%;width:8px;height:1px;background:var(--ink-faint);opacity:.5}
-  tr.lvl-pal td{font-size:13px}
-  tr.totrow td{border-top:1.5px solid var(--teal);font-weight:800;background:var(--bg-3)}
-  .empty{padding:30px;text-align:center;color:var(--ink-faint)}
-  .flash td{animation:flash .6s ease}
-  @keyframes flash{0%{background:rgba(240,166,60,.22)}100%{background:transparent}}
-  .toast{position:absolute;left:50%;bottom:calc(var(--tabbar-h) + 10px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--bg-3);color:var(--ink);padding:12px 20px;border-radius:10px;font-size:14px;border:1px solid var(--teal-deep);box-shadow:0 12px 30px -10px rgba(0,0,0,.7);opacity:0;pointer-events:none;transition:opacity .25s;z-index:50;max-width:88%;text-align:center}
+  /* Arbre hiérarchique synthèse : indentation par niveau (article › lot › palette) */
+  .row.lvl-art{background:linear-gradient(90deg,rgba(63,214,196,.09),transparent 65%)}
+  .row.lvl-art .chip{font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;background:rgba(63,214,196,.15);color:var(--teal);font-family:ui-monospace,monospace;margin-right:6px}
+  .row.lvl-lot{padding-left:30px;background:rgba(139,123,232,.045)}
+  .row.lvl-lot .row-title{font-size:13.5px}
+  .row.lvl-pal{padding-left:48px}
+  .row.lvl-pal .row-title,.row.lvl-pal .row-sub{font-size:12.5px;color:var(--ink-dim)}
+  .row.total{background:var(--bg-3)}
+  .row.total .row-title{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-faint)}
+  .row.total .trail-num{color:var(--teal);font-size:15.5px}
+
+  .empty{padding:32px 16px;text-align:center;color:var(--ink-faint);font-size:13.5px}
+  .row.flash{animation:flash .6s ease}
+  @keyframes flash{0%{background:rgba(240,166,60,.2)}100%{background:transparent}}
+  .toast{position:absolute;left:50%;bottom:calc(var(--tabbar-h) + 10px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--bg-3);color:var(--ink);padding:12px 20px;border-radius:12px;font-size:14px;border:1px solid var(--line);box-shadow:0 12px 30px -10px rgba(0,0,0,.7);opacity:0;pointer-events:none;transition:opacity .25s;z-index:50;max-width:88%;text-align:center;font-weight:600}
   .toast.show{opacity:1}
-  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar{width:8px;height:8px}
   ::-webkit-scrollbar-thumb{background:var(--line);border-radius:6px}
-  ::-webkit-scrollbar-thumb:hover{background:var(--teal-deep)}
-  /* Bouton caméra */
-  .cam-btn{
-    border:1.5px solid var(--teal-deep);background:var(--bg-3);color:var(--teal);
-    border-radius:10px;padding:13px 16px;font-size:22px;cursor:pointer;line-height:1;
-    transition:.15s;flex-shrink:0;
-  }
-  .cam-btn:hover{background:rgba(63,214,196,.12)}
-  .cam-btn:active{transform:scale(.95)}
 
   /* Modal caméra */
   .cam-modal{
     display:none;position:fixed;inset:0;z-index:100;
-    background:rgba(0,0,0,.85);backdrop-filter:blur(6px);
+    background:rgba(0,0,0,.88);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
     flex-direction:column;align-items:center;justify-content:center;gap:16px;
   }
   .cam-modal.open{display:flex}
   .cam-box{
-    position:relative;width:min(400px,94vw);border-radius:16px;overflow:hidden;
+    position:relative;width:min(400px,94vw);border-radius:20px;overflow:hidden;
     border:2px solid var(--teal);box-shadow:0 0 40px rgba(63,214,196,.25);
   }
   #camVideo{width:100%;height:auto;display:block;background:#000}
@@ -190,36 +240,31 @@
   @keyframes scanline{0%,100%{top:20%}50%{top:80%}}
   /* coins stylés */
   .cam-corner{position:absolute;width:22px;height:22px;border-color:var(--teal);border-style:solid;border-width:0}
-  .cam-corner.tl{top:10px;left:10px;border-top-width:3px;border-left-width:3px;border-radius:4px 0 0 0}
-  .cam-corner.tr{top:10px;right:10px;border-top-width:3px;border-right-width:3px;border-radius:0 4px 0 0}
-  .cam-corner.bl{bottom:10px;left:10px;border-bottom-width:3px;border-left-width:3px;border-radius:0 0 0 4px}
-  .cam-corner.br{bottom:10px;right:10px;border-bottom-width:3px;border-right-width:3px;border-radius:0 0 4px 0}
-  .cam-status{color:var(--ink-dim);font-size:13.5px;text-align:center;padding:0 20px}
+  .cam-corner.tl{top:10px;left:10px;border-top-width:3px;border-left-width:3px;border-radius:6px 0 0 0}
+  .cam-corner.tr{top:10px;right:10px;border-top-width:3px;border-right-width:3px;border-radius:0 6px 0 0}
+  .cam-corner.bl{bottom:10px;left:10px;border-bottom-width:3px;border-left-width:3px;border-radius:0 0 0 6px}
+  .cam-corner.br{bottom:10px;right:10px;border-bottom-width:3px;border-right-width:3px;border-radius:0 0 6px 0}
+  .cam-status{color:var(--ink-dim);font-size:13.5px;text-align:center;padding:0 20px;font-weight:600}
   .cam-status.ok{color:var(--teal);font-weight:700}
   .cam-status.err{color:var(--red)}
   .cam-close{
     background:var(--bg-2);border:1px solid var(--line);color:var(--ink);
-    padding:11px 28px;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;
+    padding:12px 30px;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;
   }
-
-  /* Le châssis app est toujours étroit (largeur iPhone) : mise en page mobile appliquée en permanence */
-  #scan{width:100%}
-  .scanrow{flex-direction:column;align-items:stretch}
-  #scan,#qty{width:100%}
-  .cam-btn{align-self:flex-start}
-  .filterbar{flex-direction:column;align-items:stretch}
-  .filterbar select,.filterbar input[type=text]{width:100%}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header class="top">
-    <div class="brand">
-      <h1>Packing Liste<span class="dot">.</span></h1>
-    </div>
-    <div class="counter">
-      <div class="stat pal"><b id="palCount">0</b><span>palettes</span></div>
-      <div class="stat qte"><b id="qtyCount">0</b><span>quantité</span></div>
+    <div class="headrow">
+      <div class="brand">
+        <h1>Packing Liste<span class="dot">.</span></h1>
+        <p>Contrôle expédition palettes</p>
+      </div>
+      <div class="counter">
+        <div class="stat pal"><b id="palCount">0</b><span>Palettes</span></div>
+        <div class="stat qte"><b id="qtyCount">0</b><span>Unités</span></div>
+      </div>
     </div>
   </header>
 
@@ -227,19 +272,24 @@
   <!-- SCAN -->
   <section class="view active" id="tab-scan">
     <div class="panel">
-      <div class="scanrow">
-        <div class="field" style="flex:1">
-          <label for="scan">Code scanné</label>
-          <input id="scan" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Scannez ou saisissez ici…">
+      <div class="section-label">Scanner une palette</div>
+      <div class="scanbar">
+        <div class="scanbar-field">
+          <span class="ic">⌗</span>
+          <input id="scan" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Scannez ou saisissez un code…">
         </div>
         <button class="cam-btn" id="camBtn" title="Scanner avec la caméra">📷</button>
-        <div class="field">
-          <label for="qty">Quantité</label>
-          <input id="qty" type="number" min="0" step="1" inputmode="numeric" placeholder="0">
-        </div>
-        <button class="btn" id="addBtn">Ajouter</button>
       </div>
-      <div class="hint">Pistolet ou caméra 📷 : le code se décode seul, le curseur passe sur <b>Quantité</b>. Entrée pour valider. Cliquez sur une quantité pour la modifier.</div>
+      <div class="qtyrow">
+        <label for="qty">Qté</label>
+        <div class="stepper">
+          <button type="button" id="qtyMinus" aria-label="Diminuer la quantité">−</button>
+          <input id="qty" type="number" min="0" step="1" inputmode="numeric" placeholder="0">
+          <button type="button" id="qtyPlus" aria-label="Augmenter la quantité">+</button>
+        </div>
+      </div>
+      <button class="btn-add" id="addBtn">Ajouter la palette</button>
+      <div class="hint">Pistolet ou caméra 📷 : le code se décode seul, le curseur passe sur <b>Quantité</b>. Entrée pour valider. Touchez une quantité dans la liste pour la modifier.</div>
 
   <!-- Modal caméra -->
   <div class="cam-modal" id="camModal">
@@ -262,29 +312,25 @@
     </div>
 
     <div class="panel">
-      <div class="subtitle">Palettes scannées — dans l'ordre de scan</div>
-      <!-- Filtres -->
-      <div class="filterbar">
-        <label>Article
-          <select id="fArticle"><option value="">Tous les articles</option></select>
-        </label>
-        <label>Lot
-          <select id="fLot"><option value="">Tous les lots</option></select>
-        </label>
-        <label>Recherche
-          <input type="text" id="fSearch" placeholder="lot, code, désignation…" style="width:200px">
-        </label>
-        <button class="btn ghost" id="fReset" style="padding:7px 13px;font-size:13px">✕ Réinitialiser</button>
+      <div class="section-label">
+        <span>Palettes scannées</span>
         <span class="filtag" id="filtCount" style="display:none"></span>
       </div>
-      <div class="tablewrap">
-        <table>
-          <thead><tr><th>N°</th><th>Code</th><th>Désignation</th><th>DLUO</th><th>Lot</th><th class="num">Qté</th><th></th></tr></thead>
-          <tbody id="scanBody"></tbody>
-        </table>
+      <!-- Filtres -->
+      <div class="filterbar">
+        <div class="searchpill">
+          <span class="ic">🔍</span>
+          <input type="text" id="fSearch" placeholder="Rechercher lot, code, désignation…">
+        </div>
+        <select id="fArticle"><option value="">Tous les articles</option></select>
+        <select id="fLot"><option value="">Tous les lots</option></select>
+      </div>
+      <div class="list" id="scanBody"></div>
+      <div class="btnbar">
+        <button class="btn ghost" id="fReset">✕ Réinitialiser les filtres</button>
       </div>
       <div class="btnbar">
-        <button class="btn" id="exportXlsx">Exporter en Excel</button>
+        <button class="btn save" id="exportXlsx">Exporter en Excel</button>
         <button class="btn ghost" id="exportScan">Détail CSV</button>
         <button class="btn warn" id="clearScan">Tout effacer</button>
       </div>
@@ -294,22 +340,14 @@
   <!-- SYNTHESE -->
   <section class="view" id="tab-synth">
     <div class="panel">
-      <div class="subtitle">Récapitulatif par article</div>
-      <table>
-        <thead><tr><th>Code</th><th>Désignation</th><th class="num">Palettes</th><th class="num">Quantité</th></tr></thead>
-        <tbody id="prodBody"></tbody>
-      </table>
+      <div class="section-label">Récapitulatif par article</div>
+      <div class="list" id="prodBody"></div>
     </div>
     <div class="panel">
-      <div class="subtitle">Détail hiérarchique — article › lot › palette</div>
-      <div class="tablewrap">
-        <table>
-          <thead><tr><th>Article · lot · palette</th><th>DLUO</th><th class="num">Palettes</th><th class="num">Quantité</th></tr></thead>
-          <tbody id="treeBody"></tbody>
-        </table>
-      </div>
+      <div class="section-label">Détail par lot — article › lot › palette</div>
+      <div class="list" id="treeBody"></div>
       <div class="btnbar">
-        <button class="btn" id="exportXlsx2">Exporter en Excel</button>
+        <button class="btn save" id="exportXlsx2">Exporter en Excel</button>
         <button class="btn ghost" id="exportSynth">Synthèse CSV</button>
       </div>
     </div>
@@ -318,7 +356,7 @@
   <!-- ARTICLES -->
   <section class="view" id="tab-art">
     <div class="panel">
-      <div class="subtitle">Table de correspondance GTIN → article</div>
+      <div class="section-label">Table de correspondance GTIN → article</div>
       <div class="artlist" id="artBody"></div>
       <div class="btnbar">
         <button class="btn" id="addArt">+ Ajouter un article</button>
@@ -425,23 +463,25 @@ function renderScanTable(){
 
   const tb=$("scanBody");tb.innerHTML="";
   if(filtered.length===0){
-    tb.innerHTML=`<tr><td colspan="7" class="empty">${scans.length===0?"Aucune palette scannée pour l'instant.":"Aucun résultat pour les filtres actifs."}</td></tr>`;
+    tb.innerHTML=`<div class="empty">${scans.length===0?"Aucune palette scannée pour l'instant.":"Aucun résultat pour les filtres actifs."}</div>`;
     refreshCounters();return;
   }
   filtered.forEach(r=>{
     const idx=scans.indexOf(r);
     const unknown=r.des==="GTIN inconnu";
-    const tr=document.createElement("tr");
-    tr.setAttribute("data-seq",r.seq);
-    tr.innerHTML=`
-      <td class="seq">${r.seq}</td>
-      <td class="code">${r.code||"—"}</td>
-      <td>${r.des}${unknown?' <span class="pill bad">inconnu</span>':''}</td>
-      <td>${r.dluo||"—"}</td>
-      <td class="lot">${r.lot||"—"}</td>
-      <td class="num qty-cell" title="Cliquer pour modifier" data-idx="${idx}">${r.qty??""}</td>
-      <td><button class="btn ghost" data-del="${idx}" style="padding:4px 10px">✕</button></td>`;
-    tb.appendChild(tr);
+    const row=document.createElement("div");row.className="row";row.setAttribute("data-seq",r.seq);
+    row.innerHTML=`
+      <div class="row-lead">${r.seq}</div>
+      <div class="row-main">
+        <div class="row-title"><span class="code">${r.code||"—"}</span>${unknown?' <span class="pill bad">inconnu</span>':''}</div>
+        <div class="row-sub">${r.des}</div>
+        <div class="row-meta">Lot <span class="lot">${r.lot||"—"}</span> · DLUO ${r.dluo||"—"}</div>
+      </div>
+      <div class="row-trail">
+        <div class="qty-cell" title="Toucher pour modifier" data-idx="${idx}">${r.qty??"—"}</div>
+        <button class="row-del" data-del="${idx}" aria-label="Supprimer">✕ suppr.</button>
+      </div>`;
+    tb.appendChild(row);
   });
   // Edition inline quantité
   tb.querySelectorAll(".qty-cell").forEach(cell=>{
@@ -468,19 +508,29 @@ function renderProd(){
   let tPal=0,tQty=0; const rows=[]; const seen=new Set();
   articles.forEach(a=>{const d=byG[a.gtin];rows.push({code:a.code,des:a.des,pal:d?d.pal:0,qty:d?d.qty:0});seen.add(a.gtin);});
   Object.keys(byG).forEach(g=>{if(!seen.has(g))rows.push({code:byG[g].code,des:byG[g].des,pal:byG[g].pal,qty:byG[g].qty});});
+  if(rows.length===0){pb.innerHTML=`<div class="empty">Rien à afficher — scannez des palettes.</div>`;return;}
   rows.forEach(r=>{tPal+=r.pal;tQty+=r.qty;
-    const tr=document.createElement("tr");
-    tr.innerHTML=`<td class="code">${r.code||"—"}</td><td>${r.des}</td><td class="num">${r.pal}</td><td class="num">${r.qty}</td>`;
-    pb.appendChild(tr);});
-  const tr=document.createElement("tr");tr.className="totrow";
-  tr.innerHTML=`<td>TOTAL</td><td></td><td class="num">${tPal}</td><td class="num">${tQty}</td>`;
-  pb.appendChild(tr);
+    const row=document.createElement("div");row.className="row";
+    row.innerHTML=`
+      <div class="row-main">
+        <div class="row-title code">${r.code||"—"}</div>
+        <div class="row-sub">${r.des}</div>
+      </div>
+      <div class="row-trail">
+        <div class="trail-num">${r.pal}<span class="trail-unit">pal</span></div>
+        <div class="trail-num amber">${r.qty}<span class="trail-unit">u.</span></div>
+      </div>`;
+    pb.appendChild(row);});
+  const row=document.createElement("div");row.className="row total";
+  row.innerHTML=`<div class="row-main"><div class="row-title">Total</div></div>
+    <div class="row-trail"><div class="trail-num">${tPal}<span class="trail-unit">pal</span></div><div class="trail-num">${tQty}<span class="trail-unit">u.</span></div></div>`;
+  pb.appendChild(row);
 }
 
 /* ===== ARBRE HIÉRARCHIQUE ===== */
 function renderTree(){
   const tb=$("treeBody");tb.innerHTML="";
-  if(scans.length===0){tb.innerHTML=`<tr><td colspan="4" class="empty">Rien à afficher — scannez des palettes.</td></tr>`;return;}
+  if(scans.length===0){tb.innerHTML=`<div class="empty">Rien à afficher — scannez des palettes.</div>`;return;}
   const byG={};
   scans.forEach(r=>{const g=r.gtin||"(vide)";(byG[g]=byG[g]||[]).push(r);});
   const known=articles.map(a=>a.gtin).filter(g=>byG[g]);
@@ -490,31 +540,32 @@ function renderTree(){
     const list=byG[g],info=lookup(g);
     const artPal=list.length,artQty=list.reduce((s,r)=>s+(+r.qty||0),0);
     gPal+=artPal;gQty+=artQty;
-    const ar=document.createElement("tr");ar.className="lvl-art";
-    ar.innerHTML=`<td colspan="2"><div class="artname">
-      <span class="chip">${info.code||"—"}</span><span>${info.des}</span>
-      <span class="meta">${artPal} pal · ${artQty} u.</span></div></td>
-      <td class="num">${artPal}</td><td class="num">${artQty}</td>`;
+    const ar=document.createElement("div");ar.className="row lvl-art";
+    ar.innerHTML=`<div class="row-main">
+      <div class="row-title"><span class="chip">${info.code||"—"}</span>${info.des}</div>
+      <div class="row-sub">${artPal} palette(s) · ${artQty} unité(s)</div>
+      </div>`;
     tb.appendChild(ar);
     const byL={};
     list.forEach(r=>{(byL[r.lot||"(sans lot)"]=byL[r.lot||"(sans lot)"]||[]).push(r);});
     Object.keys(byL).sort((a,b)=>a.localeCompare(b)).forEach(lot=>{
       const pals=byL[lot];
       const lotPal=pals.length,lotQty=pals.reduce((s,r)=>s+(+r.qty||0),0);
-      const lr=document.createElement("tr");lr.className="lvl-lot";
-      lr.innerHTML=`<td class="lotcell"><span class="lot">Lot ${lot}</span></td>
-        <td></td><td class="num">${lotPal}</td><td class="num">${lotQty}</td>`;
+      const lr=document.createElement("div");lr.className="row lvl-lot";
+      lr.innerHTML=`<div class="row-main"><div class="row-title">Lot <span class="lot">${lot}</span></div></div>
+        <div class="row-trail"><div class="trail-num">${lotPal}<span class="trail-unit">pal</span></div><div class="trail-num amber">${lotQty}<span class="trail-unit">u.</span></div></div>`;
       tb.appendChild(lr);
       pals.sort((a,b)=>a.seq-b.seq).forEach(p=>{
-        const pr=document.createElement("tr");pr.className="lvl-pal";
-        pr.innerHTML=`<td class="palcell">Palette · scan n°${p.seq}</td>
-          <td>${p.dluo||"—"}</td><td class="num">1</td><td class="num">${p.qty??""}</td>`;
+        const pr=document.createElement("div");pr.className="row lvl-pal";
+        pr.innerHTML=`<div class="row-main"><div class="row-title">Palette · scan n°${p.seq}</div><div class="row-sub">DLUO ${p.dluo||"—"}</div></div>
+          <div class="row-trail"><div class="trail-num">${p.qty??"—"}</div></div>`;
         tb.appendChild(pr);
       });
     });
   });
-  const tr=document.createElement("tr");tr.className="totrow";
-  tr.innerHTML=`<td>TOTAL</td><td></td><td class="num">${gPal}</td><td class="num">${gQty}</td>`;
+  const tr=document.createElement("div");tr.className="row total";
+  tr.innerHTML=`<div class="row-main"><div class="row-title">Total</div></div>
+    <div class="row-trail"><div class="trail-num">${gPal}<span class="trail-unit">pal</span></div><div class="trail-num">${gQty}<span class="trail-unit">u.</span></div></div>`;
   tb.appendChild(tr);
 }
 
@@ -580,13 +631,22 @@ function addScan(){
   scans.push({seq:seqCounter,gtin:d.gtin,des:info.des,code:info.code,dluo:d.dluo,lot:d.lot,qty});
   $("scan").value="";$("qty").value="";$("preview").style.display="none";
   renderAll();$("scan").focus();
-  const rows=$("scanBody").querySelectorAll("tr");
+  const rows=$("scanBody").querySelectorAll(".row");
   if(rows.length){const last=rows[rows.length-1];last.classList.add("flash");}
 }
 $("scan").addEventListener("input",updatePreview);
 $("scan").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();if($("scan").value.trim()){$("qty").focus();$("qty").select();}}});
 $("qty").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addScan();}});
 $("addBtn").onclick=addScan;
+
+/* ===== STEPPER QUANTITÉ (+/-) ===== */
+function bumpQty(delta){
+  const cur=$("qty").value===""?0:(+$("qty").value);
+  const next=Math.max(0,cur+delta);
+  $("qty").value=next;
+}
+$("qtyMinus").onclick=()=>bumpQty(-1);
+$("qtyPlus").onclick=()=>bumpQty(1);
 
 document.querySelectorAll("nav.tabs button").forEach(btn=>btn.onclick=()=>{
   document.querySelectorAll("nav.tabs button").forEach(b=>b.classList.remove("active"));
