@@ -3,7 +3,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Packing Liste — expédition</title>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
 <script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
@@ -13,6 +13,7 @@
     --ink:#e8edf3;--ink-dim:#9aa7b6;--ink-faint:#64707e;
     --teal:#3fd6c4;--teal-deep:#1f8f83;--amber:#f0a63c;--violet:#8b7be8;--red:#f0645f;--green:#4bd07f;
     --scan:#12202b;--shadow:0 10px 30px -18px rgba(0,0,0,.8);
+    --app-w:430px;--app-h:932px;--tabbar-h:64px;
   }
   *{box-sizing:border-box}
   html,body{margin:0}
@@ -22,22 +23,49 @@
       radial-gradient(900px 420px at 8% 108%,rgba(139,123,232,.07),transparent 60%),
       var(--bg);
     color:var(--ink);font-family:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
-    font-size:15px;line-height:1.45;-webkit-text-size-adjust:100%;min-height:100vh;
+    font-size:15px;line-height:1.45;-webkit-text-size-adjust:100%;
   }
-  .wrap{max-width:1140px;margin:0 auto;padding:22px 18px 70px}
-  header.top{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;padding-bottom:16px;margin-bottom:20px;border-bottom:1px solid var(--line)}
-  .brand h1{font-size:23px;margin:0;font-weight:800;letter-spacing:.3px}
+  /* Coquille app mobile — dimensionnée comme un iPhone (430×932, ex. iPhone Pro Max) */
+  .wrap{
+    max-width:var(--app-w);margin:0 auto;height:100dvh;position:relative;
+    display:flex;flex-direction:column;overflow:hidden;background:var(--bg);
+  }
+  header.top{
+    flex:0 0 auto;display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;
+    padding:calc(14px + env(safe-area-inset-top)) 18px 14px;border-bottom:1px solid var(--line);
+  }
+  .brand h1{font-size:21px;margin:0;font-weight:800;letter-spacing:.3px}
   .brand h1 .dot{color:var(--teal)}
-  .counter{margin-left:auto;display:flex;gap:22px}
+  .counter{margin-left:auto;display:flex;gap:20px}
   .stat{text-align:right}
-  .stat b{font-size:28px;font-weight:800;line-height:1;display:block}
+  .stat b{font-size:24px;font-weight:800;line-height:1;display:block}
   .stat.pal b{color:var(--teal)}
   .stat.qte b{color:var(--amber)}
-  .stat span{font-size:10.5px;text-transform:uppercase;letter-spacing:.14em;color:var(--ink-faint)}
-  nav.tabs{display:flex;gap:4px;margin-bottom:18px;flex-wrap:wrap}
-  nav.tabs button{border:1px solid var(--line);background:var(--bg-2);padding:9px 18px;font-size:14px;font-weight:600;color:var(--ink-dim);cursor:pointer;border-radius:9px;transition:.15s}
-  nav.tabs button:hover{color:var(--ink);border-color:var(--teal-deep)}
-  nav.tabs button.active{background:linear-gradient(180deg,var(--bg-3),var(--bg-2));color:var(--ink);border-color:var(--teal);box-shadow:0 0 0 1px rgba(63,214,196,.25),0 6px 18px -12px rgba(63,214,196,.6)}
+  .stat span{font-size:10px;text-transform:uppercase;letter-spacing:.14em;color:var(--ink-faint)}
+  main.content{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 16px 24px}
+  /* Barre d'onglets style app native, ancrée en bas */
+  nav.tabs{
+    flex:0 0 auto;display:flex;gap:2px;background:var(--bg-2);border-top:1px solid var(--line);
+    padding:6px 6px calc(6px + env(safe-area-inset-bottom));
+  }
+  nav.tabs button{
+    flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+    border:none;background:transparent;padding:7px 4px 6px;font-size:10.5px;font-weight:600;
+    color:var(--ink-faint);cursor:pointer;border-radius:10px;transition:.15s;min-height:52px;
+  }
+  nav.tabs button .icon{font-size:20px;line-height:1}
+  nav.tabs button:hover{color:var(--ink-dim);background:rgba(255,255,255,.03)}
+  nav.tabs button.active{color:var(--teal);background:rgba(63,214,196,.1)}
+  /* Sur grand écran : simule un cadre iPhone centré, l'app garde ses dimensions réelles */
+  /* (valeur en dur : les media queries n'acceptent pas var() dans leurs conditions) */
+  @media(min-width:431px){
+    body{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+    .wrap{
+      height:min(var(--app-h),92vh);border-radius:44px;border:1px solid var(--line);
+      box-shadow:0 40px 90px -24px rgba(0,0,0,.75),0 0 0 8px #05070a;
+    }
+    header.top{padding-top:22px}
+  }
   section.view{display:none}
   section.view.active{display:block;animation:fade .25s ease}
   @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
@@ -115,7 +143,7 @@
   .empty{padding:30px;text-align:center;color:var(--ink-faint)}
   .flash td{animation:flash .6s ease}
   @keyframes flash{0%{background:rgba(240,166,60,.22)}100%{background:transparent}}
-  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:var(--bg-3);color:var(--ink);padding:12px 20px;border-radius:10px;font-size:14px;border:1px solid var(--teal-deep);box-shadow:0 12px 30px -10px rgba(0,0,0,.7);opacity:0;pointer-events:none;transition:opacity .25s;z-index:50}
+  .toast{position:absolute;left:50%;bottom:calc(var(--tabbar-h) + 10px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--bg-3);color:var(--ink);padding:12px 20px;border-radius:10px;font-size:14px;border:1px solid var(--teal-deep);box-shadow:0 12px 30px -10px rgba(0,0,0,.7);opacity:0;pointer-events:none;transition:opacity .25s;z-index:50;max-width:88%;text-align:center}
   .toast.show{opacity:1}
   ::-webkit-scrollbar{width:10px;height:10px}
   ::-webkit-scrollbar-thumb{background:var(--line);border-radius:6px}
@@ -163,14 +191,13 @@
     padding:11px 28px;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;
   }
 
-  @media(max-width:560px){
-    .brand h1{font-size:19px}#scan{width:100%}.counter{gap:16px}
-    .scanrow{flex-direction:column;align-items:stretch}
-    #scan,#qty{width:100%}
-    .cam-btn{align-self:flex-start}
-    .filterbar{flex-direction:column;align-items:stretch}
-    .filterbar select,.filterbar input[type=text]{width:100%}
-  }
+  /* Le châssis app est toujours étroit (largeur iPhone) : mise en page mobile appliquée en permanence */
+  #scan{width:100%}
+  .scanrow{flex-direction:column;align-items:stretch}
+  #scan,#qty{width:100%}
+  .cam-btn{align-self:flex-start}
+  .filterbar{flex-direction:column;align-items:stretch}
+  .filterbar select,.filterbar input[type=text]{width:100%}
 </style>
 </head>
 <body>
@@ -185,12 +212,7 @@
     </div>
   </header>
 
-  <nav class="tabs">
-    <button class="active" data-tab="scan">Scan</button>
-    <button data-tab="synth">Synthèse</button>
-    <button data-tab="art">Articles</button>
-  </nav>
-
+  <main class="content">
   <!-- SCAN -->
   <section class="view active" id="tab-scan">
     <div class="panel">
@@ -300,11 +322,19 @@
       <div class="hint">Ajoutez ou modifiez vos GTIN, puis <b>Sauvegarder l'app</b> : un nouveau fichier HTML est téléchargé avec vos articles intégrés. Rouvrez ce fichier-là ensuite — tout est déjà rempli.</div>
     </div>
   </section>
+  </main>
+
+  <nav class="tabs">
+    <button class="active" data-tab="scan"><span class="icon">📦</span><span class="lbl">Scan</span></button>
+    <button data-tab="synth"><span class="icon">📊</span><span class="lbl">Synthèse</span></button>
+    <button data-tab="art"><span class="icon">🏷️</span><span class="lbl">Articles</span></button>
+  </nav>
+  <div class="toast" id="toast"></div>
 </div>
-<div class="toast" id="toast"></div>
 
 <script>
 let articles = [
+  {gtin:"05449000243195", des:"TEST — Coca-Cola 33cl (EAN-13)", code:"TEST001"},
   {gtin:"13179142040244", des:"BTE150G FRUIT ASSORTX012-VA", code:"901601698"},
   {gtin:"13179142040251", des:"BTE150G MACEDOINE X012-VA",   code:"901601699"},
   {gtin:"13179142040299", des:"BTE100G LAMELLE ORANGX12-VA",  code:"901602259"},
@@ -329,6 +359,8 @@ function decode(raw){
   }
   let lf=i15>=0?i15+8:from; let i10=s.indexOf("10",lf);
   if(i10>=0){let rest=s.slice(i10+2),cut=rest.indexOf(GS);out.lot=cut>=0?rest.slice(0,cut):rest;}
+  // Repli : code produit simple (EAN-13/EAN-8/UPC-A), pas une étiquette GS1-128 complète
+  if(!out.gtin&&/^\d{6,14}$/.test(s)) out.gtin=s.padStart(14,"0");
   return out;
 }
 function lookup(gtin){const a=articles.find(x=>x.gtin===gtin);return a?{des:a.des,code:a.code}:{des:"GTIN inconnu",code:""};}
@@ -636,6 +668,23 @@ $("saveApp").onclick=()=>{
 
 $("clearScan").onclick=()=>{if(scans.length&&confirm("Effacer toutes les palettes scannées ?")){scans=[];seqCounter=0;renderAll();}};
 
+/* ===== BIP SONORE (Web Audio, aucun fichier externe) ===== */
+let beepCtx=null;
+function beep(){
+  try{
+    beepCtx=beepCtx||new (window.AudioContext||window.webkitAudioContext)();
+    if(beepCtx.state==="suspended") beepCtx.resume();
+    const t=beepCtx.currentTime;
+    const osc=beepCtx.createOscillator(), gain=beepCtx.createGain();
+    osc.type="sine";osc.frequency.value=1568;
+    gain.gain.setValueAtTime(0.0001,t);
+    gain.gain.exponentialRampToValueAtTime(0.35,t+0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001,t+0.14);
+    osc.connect(gain).connect(beepCtx.destination);
+    osc.start(t);osc.stop(t+0.15);
+  }catch(e){ /* audio indisponible — pas bloquant */ }
+}
+
 /* ===== CAMÉRA — ZXing ===== */
 let codeReader=null, camStream=null, camRunning=false;
 
@@ -694,12 +743,13 @@ async function startCam(){
       if(!camRunning) return;
       if(result){
         const raw=result.getText();
-        const clean=raw.replace(/[()\s]/g,"");
-        if(!clean.includes("01")||clean.length<20){
+        // Même logique de décodage que le reste de l'app (GS1-128 ou code produit simple)
+        if(!decode(raw).gtin){
           camSetStatus("Code non reconnu — repositionnez","err");
           setTimeout(()=>{if(camRunning)camSetStatus("Pointez vers le code-barres…");},1500);
           return;
         }
+        beep();
         if(navigator.vibrate) navigator.vibrate([60,40,60]);
         camSetStatus("✓ Code détecté !","ok");
         stopCam();
