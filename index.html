@@ -123,10 +123,21 @@
   .btn.warn{background:transparent;border-color:#6e2f2d;color:var(--red)}
   .btn.save{background:linear-gradient(180deg,#2a8f57,#217048);border-color:#2a8f57;color:#eafff1}
   .btnbar{display:flex;gap:11px;flex-wrap:wrap;margin-top:16px}
-  .edit{border:1px solid var(--line);border-radius:7px;padding:7px 9px;font-size:13.5px;width:100%;font-family:inherit;background:var(--bg-3);color:var(--ink);outline:none}
+  .edit{border:1px solid var(--line);border-radius:8px;padding:10px 11px;font-size:15px;width:100%;font-family:inherit;background:var(--bg-2);color:var(--ink);outline:none}
   .edit:focus{border-color:var(--teal-deep)}
+  .edit.mono{font-family:ui-monospace,Menlo,Consolas,monospace;letter-spacing:.02em}
   .subtitle{font-size:15px;font-weight:700;margin:2px 0 14px;display:flex;align-items:center;gap:9px}
   .subtitle::before{content:"";width:4px;height:17px;background:var(--teal);border-radius:3px;display:inline-block}
+
+  /* Onglet Articles — une carte par article plutôt qu'un tableau serré, illisible sur mobile */
+  .artlist{display:flex;flex-direction:column;gap:12px}
+  .art-card{background:var(--bg-3);border:1px solid var(--line);border-radius:13px;padding:14px;display:flex;flex-direction:column;gap:10px}
+  .art-card-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .art-num{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint)}
+  .art-card .field{gap:5px}
+  .art-card .field label{font-size:10.5px}
+  .art-del{padding:6px 12px;font-size:12.5px}
+  .art-empty{padding:34px 14px;text-align:center;color:var(--ink-faint)}
 
   /* Arbre hiérarchique */
   tr.lvl-art td{background:linear-gradient(90deg,rgba(63,214,196,.10),transparent 70%);border-top:1px solid var(--teal-deep);font-weight:700}
@@ -308,12 +319,7 @@
   <section class="view" id="tab-art">
     <div class="panel">
       <div class="subtitle">Table de correspondance GTIN → article</div>
-      <div class="tablewrap">
-        <table>
-          <thead><tr><th>GTIN</th><th>Désignation</th><th>Code article</th><th></th></tr></thead>
-          <tbody id="artBody"></tbody>
-        </table>
-      </div>
+      <div class="artlist" id="artBody"></div>
       <div class="btnbar">
         <button class="btn" id="addArt">+ Ajouter un article</button>
         <button class="btn save" id="saveApp">Sauvegarder l'app (articles inclus)</button>
@@ -515,14 +521,30 @@ function renderTree(){
 /* ===== ARTICLES ===== */
 function renderArticles(){
   const ab=$("artBody");ab.innerHTML="";
+  if(articles.length===0){
+    ab.innerHTML=`<div class="art-empty">Aucun article — ajoutez-en un avec le bouton ci-dessous.</div>`;
+    return;
+  }
   articles.forEach((a,idx)=>{
-    const tr=document.createElement("tr");
-    tr.innerHTML=`
-      <td><input class="edit" value="${a.gtin}" data-f="gtin" data-i="${idx}"></td>
-      <td><input class="edit" value="${(a.des||'').replace(/"/g,'&quot;')}" data-f="des" data-i="${idx}"></td>
-      <td><input class="edit" value="${a.code||''}" data-f="code" data-i="${idx}"></td>
-      <td><button class="btn ghost" data-delart="${idx}" style="padding:4px 10px">✕</button></td>`;
-    ab.appendChild(tr);
+    const card=document.createElement("div");card.className="art-card";
+    card.innerHTML=`
+      <div class="art-card-head">
+        <span class="art-num">Article ${idx+1}</span>
+        <button class="btn warn art-del" data-delart="${idx}">✕ Supprimer</button>
+      </div>
+      <div class="field">
+        <label>GTIN</label>
+        <input class="edit mono" value="${a.gtin}" data-f="gtin" data-i="${idx}" inputmode="numeric" placeholder="Ex. 13179142040244">
+      </div>
+      <div class="field">
+        <label>Désignation</label>
+        <input class="edit" value="${(a.des||'').replace(/"/g,'&quot;')}" data-f="des" data-i="${idx}" placeholder="Désignation produit">
+      </div>
+      <div class="field">
+        <label>Code article</label>
+        <input class="edit mono" value="${a.code||''}" data-f="code" data-i="${idx}" placeholder="Code article">
+      </div>`;
+    ab.appendChild(card);
   });
   ab.querySelectorAll("input.edit").forEach(inp=>inp.onchange=()=>{articles[+inp.dataset.i][inp.dataset.f]=inp.value.trim();renderAll();});
   ab.querySelectorAll("[data-delart]").forEach(b=>b.onclick=()=>{articles.splice(+b.dataset.delart,1);renderAll();});
