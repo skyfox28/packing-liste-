@@ -567,7 +567,11 @@ document.querySelectorAll("nav.tabs button").forEach(btn=>btn.onclick=()=>{
   document.querySelectorAll("section.view").forEach(s=>s.classList.remove("active"));
   btn.classList.add("active");$("tab-"+btn.dataset.tab).classList.add("active");
   if(btn.dataset.tab==="scan")$("scan").focus();
+  else if(camStream) stopCam(); // on quitte l'onglet Scan : on libère vraiment la caméra
 });
+// App mise en arrière-plan (changement d'onglet navigateur, verrouillage écran…) :
+// on libère la caméra plutôt que de la laisser tourner pour rien.
+document.addEventListener("visibilitychange",()=>{if(document.hidden&&camStream)stopCam();});
 $("addArt").onclick=()=>{articles.push({gtin:"",des:"",code:""});renderArticles();};
 
 /* ===== EXPORTS CSV ===== */
@@ -694,6 +698,17 @@ function camSetStatus(msg,cls=""){
 
 async function startCam(){
   $("camModal").classList.add("open");
+
+  // Le flux caméra reste ouvert entre deux scans (voir pauseCam) : on ne relance
+  // getUserMedia que si aucun flux vivant n'existe déjà. Fermer/rouvrir la caméra à
+  // chaque scan casse la mise au point/le zoom sur pas mal de téléphones.
+  const liveTrack=camStream&&camStream.getVideoTracks()[0];
+  if(liveTrack&&liveTrack.readyState==="live"){
+    camSetStatus("Pointez vers le code-barres…");
+    camRunning=true;
+    return;
+  }
+
   camSetStatus("Initialisation de la caméra…");
   try{
     if(typeof ZXing==="undefined") throw new Error("Bibliothèque ZXing non chargée — vérifiez votre connexion Internet.");
@@ -713,16 +728,18 @@ async function startCam(){
     codeReader=new ZXing.BrowserMultiFormatReader(hints,30);
 
     // Sélection caméra arrière via enumerateDevices (sans listVideoInputDevices)
+    // On ne prend un deviceId précis que si son libellé identifie clairement la caméra
+    // arrière : sur les téléphones à plusieurs objectifs (grand-angle/ultra grand-angle/
+    // téléobjectif), deviner "le dernier de la liste" peut sélectionner le mauvais
+    // objectif (zoom/mise au point qui semblent buggés). Sans certitude, on laisse le
+    // navigateur choisir via la contrainte facingMode ci-dessous, qui prend l'objectif
+    // principal par défaut.
     let deviceId=undefined;
     try{
       const devices=await navigator.mediaDevices.enumerateDevices();
       const cams=devices.filter(d=>d.kind==="videoinput");
-      // sur mobile, la caméra arrière a souvent "back" ou "environment" dans le label
-      // sinon on prend la dernière (souvent l'arrière)
       const back=cams.find(d=>/back|rear|environment/i.test(d.label));
       if(back) deviceId=back.deviceId;
-      else if(cams.length>1) deviceId=cams[cams.length-1].deviceId;
-      // si deviceId reste undefined, ZXing utilisera la contrainte facingMode ci-dessous
     }catch(e){ /* pas de permission encore, on laisse ZXing gérer */ }
 
     // Si pas de deviceId trouvé, forcer caméra arrière via constraints
@@ -766,7 +783,7 @@ async function startCam(){
         beep();
         if(navigator.vibrate) navigator.vibrate([60,40,60]);
         camSetStatus("✓ Code détecté !","ok");
-        stopCam();
+        pauseCam();
         $("scan").value=raw;
         updatePreview();
         setTimeout(()=>{$("qty").focus();$("qty").select();},200);
@@ -779,6 +796,14 @@ async function startCam(){
     camSetStatus("Erreur : "+e.message,"err");
     console.error(e);
   }
+}
+
+// Masque juste la modale après un scan réussi : le flux caméra continue de tourner
+// en arrière-plan (mise au point/exposition déjà stabilisées), pour un scan suivant
+// instantané sans re-solliciter le matériel caméra.
+function pauseCam(){
+  camRunning=false;
+  $("camModal").classList.remove("open");
 }
 
 function stopCam(){
