@@ -1,1 +1,726 @@
 
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Packing Liste — expédition</title>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+<script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
+<style>
+  :root{
+    --bg:#0f141b;--bg-2:#151c26;--bg-3:#1b2430;--line:#26313f;--line-soft:#1e2732;
+    --ink:#e8edf3;--ink-dim:#9aa7b6;--ink-faint:#64707e;
+    --teal:#3fd6c4;--teal-deep:#1f8f83;--amber:#f0a63c;--violet:#8b7be8;--red:#f0645f;--green:#4bd07f;
+    --scan:#12202b;--shadow:0 10px 30px -18px rgba(0,0,0,.8);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:
+      radial-gradient(1200px 480px at 78% -8%,rgba(63,214,196,.08),transparent 60%),
+      radial-gradient(900px 420px at 8% 108%,rgba(139,123,232,.07),transparent 60%),
+      var(--bg);
+    color:var(--ink);font-family:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
+    font-size:15px;line-height:1.45;-webkit-text-size-adjust:100%;min-height:100vh;
+  }
+  .wrap{max-width:1140px;margin:0 auto;padding:22px 18px 70px}
+  header.top{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;padding-bottom:16px;margin-bottom:20px;border-bottom:1px solid var(--line)}
+  .brand h1{font-size:23px;margin:0;font-weight:800;letter-spacing:.3px}
+  .brand h1 .dot{color:var(--teal)}
+  .counter{margin-left:auto;display:flex;gap:22px}
+  .stat{text-align:right}
+  .stat b{font-size:28px;font-weight:800;line-height:1;display:block}
+  .stat.pal b{color:var(--teal)}
+  .stat.qte b{color:var(--amber)}
+  .stat span{font-size:10.5px;text-transform:uppercase;letter-spacing:.14em;color:var(--ink-faint)}
+  nav.tabs{display:flex;gap:4px;margin-bottom:18px;flex-wrap:wrap}
+  nav.tabs button{border:1px solid var(--line);background:var(--bg-2);padding:9px 18px;font-size:14px;font-weight:600;color:var(--ink-dim);cursor:pointer;border-radius:9px;transition:.15s}
+  nav.tabs button:hover{color:var(--ink);border-color:var(--teal-deep)}
+  nav.tabs button.active{background:linear-gradient(180deg,var(--bg-3),var(--bg-2));color:var(--ink);border-color:var(--teal);box-shadow:0 0 0 1px rgba(63,214,196,.25),0 6px 18px -12px rgba(63,214,196,.6)}
+  section.view{display:none}
+  section.view.active{display:block;animation:fade .25s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  .panel{background:var(--bg-2);border:1px solid var(--line);border-radius:13px;box-shadow:var(--shadow);padding:20px;margin-bottom:18px}
+  .scanrow{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}
+  .field{display:flex;flex-direction:column;gap:6px}
+  .field label{font-size:11px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.1em}
+  #scan{font-size:18px;padding:13px 15px;border:1.5px solid var(--teal-deep);border-radius:10px;background:var(--scan);color:var(--ink);width:min(470px,72vw);font-family:ui-monospace,Menlo,Consolas,monospace;outline:none}
+  #scan:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(63,214,196,.15)}
+  #qty{font-size:18px;padding:13px 15px;border:1.5px solid #7a5518;border-radius:10px;width:130px;background:#1e1810;color:var(--ink);outline:none}
+  #qty:focus{border-color:var(--amber);box-shadow:0 0 0 3px rgba(240,166,60,.15)}
+  .hint{font-size:12.5px;color:var(--ink-dim);margin-top:10px}
+  .hint b{color:var(--ink)}
+  .decoded{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:11px;margin-top:16px}
+  .decoded .cell{border:1px solid var(--line);border-radius:10px;padding:9px 12px;background:var(--bg-3)}
+  .decoded .cell .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-faint)}
+  .decoded .cell .v{font-size:15px;font-weight:600;margin-top:3px;word-break:break-word}
+  .decoded .cell.bad .v{color:var(--red)}
+  .decoded .cell.accent .v{color:var(--teal)}
+
+  /* Filtres */
+  .filterbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:flex-end}
+  .filterbar select,.filterbar input[type=text]{
+    background:var(--bg-3);border:1px solid var(--line);color:var(--ink);border-radius:8px;
+    padding:7px 11px;font-size:13.5px;font-family:inherit;outline:none;cursor:pointer;
+  }
+  .filterbar select:focus,.filterbar input[type=text]:focus{border-color:var(--teal-deep)}
+  .filterbar label{font-size:11px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.09em;display:flex;flex-direction:column;gap:5px}
+  .filtag{font-size:12px;padding:3px 10px;background:rgba(63,214,196,.12);color:var(--teal);border-radius:6px;border:1px solid var(--teal-deep)}
+
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th,td{padding:9px 11px;text-align:left;vertical-align:middle}
+  thead th{font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;color:var(--ink-faint);background:var(--bg-3);position:sticky;top:0;z-index:1;border-bottom:1px solid var(--line)}
+  tbody td{border-bottom:1px solid var(--line-soft)}
+  tbody tr:hover td{background:rgba(63,214,196,.04)}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+  .tablewrap{max-height:54vh;overflow:auto;border:1px solid var(--line);border-radius:10px}
+  .lot{font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--violet)}
+  .code{font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--teal)}
+  .seq{color:var(--ink-faint);font-variant-numeric:tabular-nums}
+  .pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11.5px;font-weight:600}
+  .pill.bad{background:rgba(240,100,95,.15);color:var(--red)}
+
+  /* Edition inline quantité */
+  .qty-cell{cursor:pointer;min-width:50px}
+  .qty-cell:hover{color:var(--amber)}
+  .qty-input{width:70px;background:var(--bg-3);border:1.5px solid var(--amber);color:var(--ink);
+    border-radius:6px;padding:3px 7px;font-size:13.5px;font-family:inherit;outline:none;text-align:right}
+
+  .btn{border:1px solid var(--teal-deep);background:linear-gradient(180deg,#1c7a70,#166b62);color:#eafffb;padding:10px 17px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;transition:.15s}
+  .btn:hover{filter:brightness(1.12)}
+  .btn:active{transform:translateY(1px)}
+  .btn.ghost{background:transparent;color:var(--teal);border-color:var(--line)}
+  .btn.ghost:hover{border-color:var(--teal)}
+  .btn.warn{background:transparent;border-color:#6e2f2d;color:var(--red)}
+  .btn.save{background:linear-gradient(180deg,#2a8f57,#217048);border-color:#2a8f57;color:#eafff1}
+  .btnbar{display:flex;gap:11px;flex-wrap:wrap;margin-top:16px}
+  .edit{border:1px solid var(--line);border-radius:7px;padding:7px 9px;font-size:13.5px;width:100%;font-family:inherit;background:var(--bg-3);color:var(--ink);outline:none}
+  .edit:focus{border-color:var(--teal-deep)}
+  .subtitle{font-size:15px;font-weight:700;margin:2px 0 14px;display:flex;align-items:center;gap:9px}
+  .subtitle::before{content:"";width:4px;height:17px;background:var(--teal);border-radius:3px;display:inline-block}
+
+  /* Arbre hiérarchique */
+  tr.lvl-art td{background:linear-gradient(90deg,rgba(63,214,196,.10),transparent 70%);border-top:1px solid var(--teal-deep);font-weight:700}
+  tr.lvl-art .artname{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  tr.lvl-art .chip{font-size:10.5px;font-weight:700;padding:2px 9px;border-radius:6px;background:rgba(63,214,196,.14);color:var(--teal);font-family:ui-monospace,monospace}
+  tr.lvl-art .meta{margin-left:auto;font-weight:600;color:var(--ink-dim);font-size:12.5px}
+  tr.lvl-lot td{background:rgba(139,123,232,.05)}
+  tr.lvl-lot .lotcell{padding-left:26px;position:relative}
+  tr.lvl-lot .lotcell::before{content:"";position:absolute;left:12px;top:50%;width:8px;height:1px;background:var(--violet);opacity:.6}
+  tr.lvl-pal .palcell{padding-left:48px;position:relative;color:var(--ink-dim)}
+  tr.lvl-pal .palcell::before{content:"";position:absolute;left:34px;top:50%;width:8px;height:1px;background:var(--ink-faint);opacity:.5}
+  tr.lvl-pal td{font-size:13px}
+  tr.totrow td{border-top:1.5px solid var(--teal);font-weight:800;background:var(--bg-3)}
+  .empty{padding:30px;text-align:center;color:var(--ink-faint)}
+  .flash td{animation:flash .6s ease}
+  @keyframes flash{0%{background:rgba(240,166,60,.22)}100%{background:transparent}}
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:var(--bg-3);color:var(--ink);padding:12px 20px;border-radius:10px;font-size:14px;border:1px solid var(--teal-deep);box-shadow:0 12px 30px -10px rgba(0,0,0,.7);opacity:0;pointer-events:none;transition:opacity .25s;z-index:50}
+  .toast.show{opacity:1}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:var(--line);border-radius:6px}
+  ::-webkit-scrollbar-thumb:hover{background:var(--teal-deep)}
+  /* Bouton caméra */
+  .cam-btn{
+    border:1.5px solid var(--teal-deep);background:var(--bg-3);color:var(--teal);
+    border-radius:10px;padding:13px 16px;font-size:22px;cursor:pointer;line-height:1;
+    transition:.15s;flex-shrink:0;
+  }
+  .cam-btn:hover{background:rgba(63,214,196,.12)}
+  .cam-btn:active{transform:scale(.95)}
+
+  /* Modal caméra */
+  .cam-modal{
+    display:none;position:fixed;inset:0;z-index:100;
+    background:rgba(0,0,0,.85);backdrop-filter:blur(6px);
+    flex-direction:column;align-items:center;justify-content:center;gap:16px;
+  }
+  .cam-modal.open{display:flex}
+  .cam-box{
+    position:relative;width:min(400px,94vw);border-radius:16px;overflow:hidden;
+    border:2px solid var(--teal);box-shadow:0 0 40px rgba(63,214,196,.25);
+  }
+  #camVideo{width:100%;height:auto;display:block;background:#000}
+  /* ligne de scan animée */
+  .cam-line{
+    position:absolute;left:0;right:0;height:2px;background:var(--teal);opacity:.8;
+    top:50%;transform:translateY(-50%);
+    box-shadow:0 0 10px var(--teal);
+    animation:scanline 2s ease-in-out infinite;
+  }
+  @keyframes scanline{0%,100%{top:20%}50%{top:80%}}
+  /* coins stylés */
+  .cam-corner{position:absolute;width:22px;height:22px;border-color:var(--teal);border-style:solid;border-width:0}
+  .cam-corner.tl{top:10px;left:10px;border-top-width:3px;border-left-width:3px;border-radius:4px 0 0 0}
+  .cam-corner.tr{top:10px;right:10px;border-top-width:3px;border-right-width:3px;border-radius:0 4px 0 0}
+  .cam-corner.bl{bottom:10px;left:10px;border-bottom-width:3px;border-left-width:3px;border-radius:0 0 0 4px}
+  .cam-corner.br{bottom:10px;right:10px;border-bottom-width:3px;border-right-width:3px;border-radius:0 0 4px 0}
+  .cam-status{color:var(--ink-dim);font-size:13.5px;text-align:center;padding:0 20px}
+  .cam-status.ok{color:var(--teal);font-weight:700}
+  .cam-status.err{color:var(--red)}
+  .cam-close{
+    background:var(--bg-2);border:1px solid var(--line);color:var(--ink);
+    padding:11px 28px;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;
+  }
+
+  @media(max-width:560px){
+    .brand h1{font-size:19px}#scan{width:100%}.counter{gap:16px}
+    .scanrow{flex-direction:column;align-items:stretch}
+    #scan,#qty{width:100%}
+    .cam-btn{align-self:flex-start}
+    .filterbar{flex-direction:column;align-items:stretch}
+    .filterbar select,.filterbar input[type=text]{width:100%}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>Packing Liste<span class="dot">.</span></h1>
+    </div>
+    <div class="counter">
+      <div class="stat pal"><b id="palCount">0</b><span>palettes</span></div>
+      <div class="stat qte"><b id="qtyCount">0</b><span>quantité</span></div>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="active" data-tab="scan">Scan</button>
+    <button data-tab="synth">Synthèse</button>
+    <button data-tab="art">Articles</button>
+  </nav>
+
+  <!-- SCAN -->
+  <section class="view active" id="tab-scan">
+    <div class="panel">
+      <div class="scanrow">
+        <div class="field" style="flex:1">
+          <label for="scan">Code scanné</label>
+          <input id="scan" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Scannez ou saisissez ici…">
+        </div>
+        <button class="cam-btn" id="camBtn" title="Scanner avec la caméra">📷</button>
+        <div class="field">
+          <label for="qty">Quantité</label>
+          <input id="qty" type="number" min="0" step="1" inputmode="numeric" placeholder="0">
+        </div>
+        <button class="btn" id="addBtn">Ajouter</button>
+      </div>
+      <div class="hint">Pistolet ou caméra 📷 : le code se décode seul, le curseur passe sur <b>Quantité</b>. Entrée pour valider. Cliquez sur une quantité pour la modifier.</div>
+
+  <!-- Modal caméra -->
+  <div class="cam-modal" id="camModal">
+    <div class="cam-box">
+      <video id="camVideo" autoplay playsinline muted></video>
+      <div class="cam-line"></div>
+      <div class="cam-corner tl"></div><div class="cam-corner tr"></div>
+      <div class="cam-corner bl"></div><div class="cam-corner br"></div>
+    </div>
+    <div class="cam-status" id="camStatus">Initialisation de la caméra…</div>
+    <button class="cam-close" id="camClose">✕ Fermer</button>
+  </div>
+      <div class="decoded" id="preview" style="display:none">
+        <div class="cell accent"><div class="k">Code article</div><div class="v" id="pvCode">—</div></div>
+        <div class="cell"><div class="k">Désignation</div><div class="v" id="pvDes">—</div></div>
+        <div class="cell"><div class="k">GTIN</div><div class="v" id="pvGtin">—</div></div>
+        <div class="cell"><div class="k">DLUO</div><div class="v" id="pvDate">—</div></div>
+        <div class="cell"><div class="k">Lot</div><div class="v lot" id="pvLot">—</div></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="subtitle">Palettes scannées — dans l'ordre de scan</div>
+      <!-- Filtres -->
+      <div class="filterbar">
+        <label>Article
+          <select id="fArticle"><option value="">Tous les articles</option></select>
+        </label>
+        <label>Lot
+          <select id="fLot"><option value="">Tous les lots</option></select>
+        </label>
+        <label>Recherche
+          <input type="text" id="fSearch" placeholder="lot, code, désignation…" style="width:200px">
+        </label>
+        <button class="btn ghost" id="fReset" style="padding:7px 13px;font-size:13px">✕ Réinitialiser</button>
+        <span class="filtag" id="filtCount" style="display:none"></span>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>N°</th><th>Code</th><th>Désignation</th><th>DLUO</th><th>Lot</th><th class="num">Qté</th><th></th></tr></thead>
+          <tbody id="scanBody"></tbody>
+        </table>
+      </div>
+      <div class="btnbar">
+        <button class="btn" id="exportXlsx">Exporter en Excel</button>
+        <button class="btn ghost" id="exportScan">Détail CSV</button>
+        <button class="btn warn" id="clearScan">Tout effacer</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- SYNTHESE -->
+  <section class="view" id="tab-synth">
+    <div class="panel">
+      <div class="subtitle">Récapitulatif par article</div>
+      <table>
+        <thead><tr><th>Code</th><th>Désignation</th><th class="num">Palettes</th><th class="num">Quantité</th></tr></thead>
+        <tbody id="prodBody"></tbody>
+      </table>
+    </div>
+    <div class="panel">
+      <div class="subtitle">Détail hiérarchique — article › lot › palette</div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Article · lot · palette</th><th>DLUO</th><th class="num">Palettes</th><th class="num">Quantité</th></tr></thead>
+          <tbody id="treeBody"></tbody>
+        </table>
+      </div>
+      <div class="btnbar">
+        <button class="btn" id="exportXlsx2">Exporter en Excel</button>
+        <button class="btn ghost" id="exportSynth">Synthèse CSV</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ARTICLES -->
+  <section class="view" id="tab-art">
+    <div class="panel">
+      <div class="subtitle">Table de correspondance GTIN → article</div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>GTIN</th><th>Désignation</th><th>Code article</th><th></th></tr></thead>
+          <tbody id="artBody"></tbody>
+        </table>
+      </div>
+      <div class="btnbar">
+        <button class="btn" id="addArt">+ Ajouter un article</button>
+        <button class="btn save" id="saveApp">Sauvegarder l'app (articles inclus)</button>
+        <button class="btn ghost" id="exportArt">Table CSV</button>
+      </div>
+      <div class="hint">Ajoutez ou modifiez vos GTIN, puis <b>Sauvegarder l'app</b> : un nouveau fichier HTML est téléchargé avec vos articles intégrés. Rouvrez ce fichier-là ensuite — tout est déjà rempli.</div>
+    </div>
+  </section>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+let articles = [
+  {gtin:"13179142040244", des:"BTE150G FRUIT ASSORTX012-VA", code:"901601698"},
+  {gtin:"13179142040251", des:"BTE150G MACEDOINE X012-VA",   code:"901601699"},
+  {gtin:"13179142040299", des:"BTE100G LAMELLE ORANGX12-VA",  code:"901602259"},
+  {gtin:"13179142040305", des:"BTE150G BIGARREAUX X012-VA",   code:"901602260"},
+]; /* END_ARTICLES */
+
+let scans = [];
+let seqCounter = 0;
+
+/* ===== DÉCODAGE GS1-128 ===== */
+function decode(raw){
+  if(!raw) return {gtin:"",dluo:"",lot:""};
+  let s=raw.replace(/[()\s]/g,""); const GS=String.fromCharCode(29);
+  const out={gtin:"",dluo:"",lot:""};
+  let i01=s.indexOf("01");
+  if(i01>=0&&/^\d{14}/.test(s.slice(i01+2))) out.gtin=s.slice(i01+2,i01+16);
+  let from=i01>=0?i01+16:0;
+  let i15=s.indexOf("15",from);
+  if(i15>=0&&/^\d{6}/.test(s.slice(i15+2))){
+    const d=s.slice(i15+2,i15+8),yy=+d.slice(0,2),mm=+d.slice(2,4),jj=+d.slice(4,6);
+    out.dluo=String(jj).padStart(2,"0")+"/"+String(mm).padStart(2,"0")+"/"+(2000+yy);
+  }
+  let lf=i15>=0?i15+8:from; let i10=s.indexOf("10",lf);
+  if(i10>=0){let rest=s.slice(i10+2),cut=rest.indexOf(GS);out.lot=cut>=0?rest.slice(0,cut):rest;}
+  return out;
+}
+function lookup(gtin){const a=articles.find(x=>x.gtin===gtin);return a?{des:a.des,code:a.code}:{des:"GTIN inconnu",code:""};}
+
+/* ===== UTILITAIRES ===== */
+const $=id=>document.getElementById(id);
+function toast(m){const t=$("toast");t.textContent=m;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2400);}
+function refreshCounters(){
+  $("palCount").textContent=scans.length;
+  $("qtyCount").textContent=scans.reduce((s,r)=>s+(+r.qty||0),0);
+}
+
+/* ===== FILTRES ===== */
+let filterArticle="", filterLot="", filterSearch="";
+
+function rebuildFilters(){
+  const artSel=$("fArticle"), lotSel=$("fLot");
+  const prevArt=artSel.value, prevLot=lotSel.value;
+  // articles connus dans les scans
+  artSel.innerHTML=`<option value="">Tous les articles</option>`;
+  const arts=new Map();
+  scans.forEach(r=>{if(!arts.has(r.gtin))arts.set(r.gtin,r.code+" — "+r.des);});
+  arts.forEach((label,gtin)=>{const o=document.createElement("option");o.value=gtin;o.textContent=label;artSel.appendChild(o);});
+  artSel.value=arts.has(prevArt)?prevArt:"";
+  // lots
+  lotSel.innerHTML=`<option value="">Tous les lots</option>`;
+  const lots=new Set(scans.map(r=>r.lot||"(sans lot)").filter(Boolean));
+  [...lots].sort().forEach(l=>{const o=document.createElement("option");o.value=l;o.textContent=l;lotSel.appendChild(o);});
+  lotSel.value=lots.has(prevLot)?prevLot:"";
+  filterArticle=artSel.value; filterLot=lotSel.value;
+}
+
+function applyFilters(list){
+  let out=list;
+  if(filterArticle) out=out.filter(r=>r.gtin===filterArticle);
+  if(filterLot)     out=out.filter(r=>(r.lot||"(sans lot)")===filterLot);
+  if(filterSearch){
+    const q=filterSearch.toLowerCase();
+    out=out.filter(r=>(r.code||"").toLowerCase().includes(q)||(r.des||"").toLowerCase().includes(q)||(r.lot||"").toLowerCase().includes(q));
+  }
+  return out;
+}
+
+/* ===== RENDU TABLE SCAN ===== */
+function renderScanTable(){
+  rebuildFilters();
+  const filtered=applyFilters(scans);
+  const fc=$("filtCount");
+  const isFiltered=filterArticle||filterLot||filterSearch;
+  if(isFiltered&&scans.length){fc.style.display="inline";fc.textContent=filtered.length+" / "+scans.length+" palette(s)";}
+  else fc.style.display="none";
+
+  const tb=$("scanBody");tb.innerHTML="";
+  if(filtered.length===0){
+    tb.innerHTML=`<tr><td colspan="7" class="empty">${scans.length===0?"Aucune palette scannée pour l'instant.":"Aucun résultat pour les filtres actifs."}</td></tr>`;
+    refreshCounters();return;
+  }
+  filtered.forEach(r=>{
+    const idx=scans.indexOf(r);
+    const unknown=r.des==="GTIN inconnu";
+    const tr=document.createElement("tr");
+    tr.setAttribute("data-seq",r.seq);
+    tr.innerHTML=`
+      <td class="seq">${r.seq}</td>
+      <td class="code">${r.code||"—"}</td>
+      <td>${r.des}${unknown?' <span class="pill bad">inconnu</span>':''}</td>
+      <td>${r.dluo||"—"}</td>
+      <td class="lot">${r.lot||"—"}</td>
+      <td class="num qty-cell" title="Cliquer pour modifier" data-idx="${idx}">${r.qty??""}</td>
+      <td><button class="btn ghost" data-del="${idx}" style="padding:4px 10px">✕</button></td>`;
+    tb.appendChild(tr);
+  });
+  // Edition inline quantité
+  tb.querySelectorAll(".qty-cell").forEach(cell=>{
+    cell.onclick=()=>{
+      if(cell.querySelector("input")) return;
+      const idx=+cell.dataset.idx, cur=scans[idx].qty??"";
+      const inp=document.createElement("input");
+      inp.type="number";inp.className="qty-input";inp.value=cur;inp.min=0;
+      cell.textContent="";cell.appendChild(inp);inp.focus();inp.select();
+      function commit(){const v=inp.value===""?null:(+inp.value);scans[idx].qty=v;renderAll();}
+      inp.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();commit();}if(e.key==="Escape"){renderAll();}});
+      inp.addEventListener("blur",commit);
+    };
+  });
+  tb.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{scans.splice(+b.dataset.del,1);renderAll();});
+  refreshCounters();
+}
+
+/* ===== RÉCAP PAR ARTICLE ===== */
+function renderProd(){
+  const pb=$("prodBody");pb.innerHTML="";
+  const byG={};
+  scans.forEach(r=>{const g=r.gtin||"(vide)";byG[g]=byG[g]||{pal:0,qty:0,des:r.des,code:r.code};byG[g].pal++;byG[g].qty+=(+r.qty||0);});
+  let tPal=0,tQty=0; const rows=[]; const seen=new Set();
+  articles.forEach(a=>{const d=byG[a.gtin];rows.push({code:a.code,des:a.des,pal:d?d.pal:0,qty:d?d.qty:0});seen.add(a.gtin);});
+  Object.keys(byG).forEach(g=>{if(!seen.has(g))rows.push({code:byG[g].code,des:byG[g].des,pal:byG[g].pal,qty:byG[g].qty});});
+  rows.forEach(r=>{tPal+=r.pal;tQty+=r.qty;
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td class="code">${r.code||"—"}</td><td>${r.des}</td><td class="num">${r.pal}</td><td class="num">${r.qty}</td>`;
+    pb.appendChild(tr);});
+  const tr=document.createElement("tr");tr.className="totrow";
+  tr.innerHTML=`<td>TOTAL</td><td></td><td class="num">${tPal}</td><td class="num">${tQty}</td>`;
+  pb.appendChild(tr);
+}
+
+/* ===== ARBRE HIÉRARCHIQUE ===== */
+function renderTree(){
+  const tb=$("treeBody");tb.innerHTML="";
+  if(scans.length===0){tb.innerHTML=`<tr><td colspan="4" class="empty">Rien à afficher — scannez des palettes.</td></tr>`;return;}
+  const byG={};
+  scans.forEach(r=>{const g=r.gtin||"(vide)";(byG[g]=byG[g]||[]).push(r);});
+  const known=articles.map(a=>a.gtin).filter(g=>byG[g]);
+  const unknown=Object.keys(byG).filter(g=>!articles.find(a=>a.gtin===g));
+  let gPal=0,gQty=0;
+  [...known,...unknown].forEach(g=>{
+    const list=byG[g],info=lookup(g);
+    const artPal=list.length,artQty=list.reduce((s,r)=>s+(+r.qty||0),0);
+    gPal+=artPal;gQty+=artQty;
+    const ar=document.createElement("tr");ar.className="lvl-art";
+    ar.innerHTML=`<td colspan="2"><div class="artname">
+      <span class="chip">${info.code||"—"}</span><span>${info.des}</span>
+      <span class="meta">${artPal} pal · ${artQty} u.</span></div></td>
+      <td class="num">${artPal}</td><td class="num">${artQty}</td>`;
+    tb.appendChild(ar);
+    const byL={};
+    list.forEach(r=>{(byL[r.lot||"(sans lot)"]=byL[r.lot||"(sans lot)"]||[]).push(r);});
+    Object.keys(byL).sort((a,b)=>a.localeCompare(b)).forEach(lot=>{
+      const pals=byL[lot];
+      const lotPal=pals.length,lotQty=pals.reduce((s,r)=>s+(+r.qty||0),0);
+      const lr=document.createElement("tr");lr.className="lvl-lot";
+      lr.innerHTML=`<td class="lotcell"><span class="lot">Lot ${lot}</span></td>
+        <td></td><td class="num">${lotPal}</td><td class="num">${lotQty}</td>`;
+      tb.appendChild(lr);
+      pals.sort((a,b)=>a.seq-b.seq).forEach(p=>{
+        const pr=document.createElement("tr");pr.className="lvl-pal";
+        pr.innerHTML=`<td class="palcell">Palette · scan n°${p.seq}</td>
+          <td>${p.dluo||"—"}</td><td class="num">1</td><td class="num">${p.qty??""}</td>`;
+        tb.appendChild(pr);
+      });
+    });
+  });
+  const tr=document.createElement("tr");tr.className="totrow";
+  tr.innerHTML=`<td>TOTAL</td><td></td><td class="num">${gPal}</td><td class="num">${gQty}</td>`;
+  tb.appendChild(tr);
+}
+
+/* ===== ARTICLES ===== */
+function renderArticles(){
+  const ab=$("artBody");ab.innerHTML="";
+  articles.forEach((a,idx)=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML=`
+      <td><input class="edit" value="${a.gtin}" data-f="gtin" data-i="${idx}"></td>
+      <td><input class="edit" value="${(a.des||'').replace(/"/g,'&quot;')}" data-f="des" data-i="${idx}"></td>
+      <td><input class="edit" value="${a.code||''}" data-f="code" data-i="${idx}"></td>
+      <td><button class="btn ghost" data-delart="${idx}" style="padding:4px 10px">✕</button></td>`;
+    ab.appendChild(tr);
+  });
+  ab.querySelectorAll("input.edit").forEach(inp=>inp.onchange=()=>{articles[+inp.dataset.i][inp.dataset.f]=inp.value.trim();renderAll();});
+  ab.querySelectorAll("[data-delart]").forEach(b=>b.onclick=()=>{articles.splice(+b.dataset.delart,1);renderAll();});
+}
+
+function renderAll(){renderScanTable();renderProd();renderTree();renderArticles();}
+
+/* ===== ÉVÉNEMENTS FILTRES ===== */
+$("fArticle").onchange=e=>{filterArticle=e.target.value;renderScanTable();};
+$("fLot").onchange=e=>{filterLot=e.target.value;renderScanTable();};
+$("fSearch").oninput=e=>{filterSearch=e.target.value.trim();renderScanTable();};
+$("fReset").onclick=()=>{filterArticle="";filterLot="";filterSearch="";$("fSearch").value="";$("fArticle").value="";$("fLot").value="";renderScanTable();};
+
+/* ===== PREVIEW + AJOUT ===== */
+function updatePreview(){
+  const raw=$("scan").value.trim(),pv=$("preview");
+  if(!raw){pv.style.display="none";return;}
+  const d=decode(raw),info=lookup(d.gtin);
+  pv.style.display="grid";
+  $("pvCode").textContent=info.code||"—";
+  $("pvDes").textContent=info.des;
+  $("pvDes").parentElement.classList.toggle("bad",info.des==="GTIN inconnu");
+  $("pvGtin").textContent=d.gtin||"—";
+  $("pvDate").textContent=d.dluo||"—";
+  $("pvLot").textContent=d.lot||"—";
+}
+function addScan(){
+  const raw=$("scan").value.trim();
+  if(!raw){$("scan").focus();return;}
+  const d=decode(raw),info=lookup(d.gtin);
+  const qty=$("qty").value===""?null:(+$("qty").value);
+  seqCounter++;
+  scans.push({seq:seqCounter,gtin:d.gtin,des:info.des,code:info.code,dluo:d.dluo,lot:d.lot,qty});
+  $("scan").value="";$("qty").value="";$("preview").style.display="none";
+  renderAll();$("scan").focus();
+  const rows=$("scanBody").querySelectorAll("tr");
+  if(rows.length){const last=rows[rows.length-1];last.classList.add("flash");}
+}
+$("scan").addEventListener("input",updatePreview);
+$("scan").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();if($("scan").value.trim()){$("qty").focus();$("qty").select();}}});
+$("qty").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addScan();}});
+$("addBtn").onclick=addScan;
+
+document.querySelectorAll("nav.tabs button").forEach(btn=>btn.onclick=()=>{
+  document.querySelectorAll("nav.tabs button").forEach(b=>b.classList.remove("active"));
+  document.querySelectorAll("section.view").forEach(s=>s.classList.remove("active"));
+  btn.classList.add("active");$("tab-"+btn.dataset.tab).classList.add("active");
+  if(btn.dataset.tab==="scan")$("scan").focus();
+});
+$("addArt").onclick=()=>{articles.push({gtin:"",des:"",code:""});renderArticles();};
+
+/* ===== EXPORTS CSV ===== */
+function toCSV(rows){return rows.map(r=>r.map(c=>{const s=String(c??"");return /[",;\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}).join(";")).join("\r\n");}
+function download(name,text,type){const blob=new Blob([type?text:"\uFEFF"+text],{type:type||"text/csv;charset=utf-8"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=name;a.click();URL.revokeObjectURL(url);}
+$("exportScan").onclick=()=>{const rows=[["N° scan","Code","Désignation","GTIN","DLUO","Lot","Quantité"]];applyFilters(scans).forEach(r=>rows.push([r.seq,r.code,r.des,r.gtin,r.dluo,r.lot,r.qty??""]));download("packing_detail.csv",toCSV(rows));};
+$("exportArt").onclick=()=>{const rows=[["GTIN","Désignation","Code article"]];articles.forEach(a=>rows.push([a.gtin,a.des,a.code]));download("packing_articles.csv",toCSV(rows));};
+
+function buildTreeRows(){
+  const out=[];
+  const byG={};scans.forEach(r=>{(byG[r.gtin||"(vide)"]=byG[r.gtin||"(vide)"]||[]).push(r);});
+  const order=[...articles.map(a=>a.gtin).filter(g=>byG[g]),...Object.keys(byG).filter(g=>!articles.find(a=>a.gtin===g))];
+  order.forEach(g=>{
+    const list=byG[g],info=lookup(g);
+    out.push(["Article",info.code,info.des,list.length,list.reduce((s,r)=>s+(+r.qty||0),0)]);
+    const byL={};list.forEach(r=>{(byL[r.lot||"(sans lot)"]=byL[r.lot||"(sans lot)"]||[]).push(r);});
+    Object.keys(byL).sort((a,b)=>a.localeCompare(b)).forEach(lot=>{
+      const pals=byL[lot];
+      out.push(["  Lot",lot,"",pals.length,pals.reduce((s,r)=>s+(+r.qty||0),0)]);
+      pals.sort((a,b)=>a.seq-b.seq).forEach(p=>out.push(["    Palette","scan n°"+p.seq,p.dluo,1,p.qty??""]));
+    });
+  });
+  return out;
+}
+$("exportSynth").onclick=()=>{
+  const rows=[["=== PAR ARTICLE ==="],["Code","Désignation","Palettes","Quantité"]];
+  const byG={};scans.forEach(r=>{const g=r.gtin||"(vide)";byG[g]=byG[g]||{pal:0,qty:0,des:r.des,code:r.code};byG[g].pal++;byG[g].qty+=(+r.qty||0);});
+  articles.forEach(a=>{const d=byG[a.gtin];rows.push([a.code,a.des,d?d.pal:0,d?d.qty:0]);});
+  Object.keys(byG).forEach(g=>{if(!articles.find(a=>a.gtin===g))rows.push([byG[g].code,byG[g].des,byG[g].pal,byG[g].qty]);});
+  rows.push([]);rows.push(["=== HIÉRARCHIQUE : article > lot > palette ==="],["Niveau","Code / Lot / Palette","Désignation / DLUO","Palettes","Quantité"]);
+  buildTreeRows().forEach(t=>rows.push(t));
+  download("packing_synthese.csv",toCSV(rows));
+};
+
+/* ===== EXPORT EXCEL (.xlsx) avec AutoFilter ===== */
+function buildWorkbook(){
+  const wb=XLSX.utils.book_new();
+
+  // Feuille 1 : ordre de scan (filtres Excel sur toutes colonnes)
+  const d1=[["N° scan","Code article","Désignation","GTIN","DLUO","Lot","Quantité"]];
+  scans.forEach(r=>d1.push([r.seq,r.code,r.des,r.gtin,r.dluo,r.lot,r.qty??""]));
+  const ws1=XLSX.utils.aoa_to_sheet(d1);
+  ws1["!cols"]=[{wch:8},{wch:12},{wch:32},{wch:16},{wch:12},{wch:12},{wch:10}];
+  ws1["!autofilter"]={ref:"A1:G"+(d1.length)};
+  XLSX.utils.book_append_sheet(wb,ws1,"Ordre de scan");
+
+  // Feuille 2 : par article
+  const byG={};scans.forEach(r=>{const g=r.gtin||"(vide)";byG[g]=byG[g]||{pal:0,qty:0,des:r.des,code:r.code};byG[g].pal++;byG[g].qty+=(+r.qty||0);});
+  const d2=[["Code article","Désignation","Palettes","Quantité"]];let tp=0,tq=0;
+  articles.forEach(a=>{const d=byG[a.gtin];const pal=d?d.pal:0,q=d?d.qty:0;tp+=pal;tq+=q;d2.push([a.code,a.des,pal,q]);});
+  Object.keys(byG).forEach(g=>{if(!articles.find(a=>a.gtin===g)){tp+=byG[g].pal;tq+=byG[g].qty;d2.push([byG[g].code,byG[g].des,byG[g].pal,byG[g].qty]);}});
+  d2.push(["TOTAL","",tp,tq]);
+  const ws2=XLSX.utils.aoa_to_sheet(d2);
+  ws2["!cols"]=[{wch:12},{wch:32},{wch:10},{wch:10}];
+  ws2["!autofilter"]={ref:"A1:D"+(d2.length)};
+  XLSX.utils.book_append_sheet(wb,ws2,"Par article");
+
+  // Feuille 3 : détail par palette (une ligne par palette, filtres)
+  const d3=[["Code article","Désignation","Lot","DLUO","N° scan","Quantité"]];
+  const byGg={};scans.forEach((r,i)=>{(byGg[r.gtin||"(vide)"]=byGg[r.gtin||"(vide)"]||[]).push(r);});
+  const order=[...articles.map(a=>a.gtin).filter(g=>byGg[g]),...Object.keys(byGg).filter(g=>!articles.find(a=>a.gtin===g))];
+  order.forEach(g=>{
+    const list=byGg[g];const info=lookup(g);
+    const byL={};list.forEach(r=>{(byL[r.lot||"(sans lot)"]=byL[r.lot||"(sans lot)"]||[]).push(r);});
+    Object.keys(byL).sort((a,b)=>a.localeCompare(b)).forEach(lot=>{
+      byL[lot].sort((a,b)=>a.seq-b.seq).forEach(p=>d3.push([info.code,info.des,p.lot,p.dluo,p.seq,p.qty??""]));
+    });
+  });
+  const ws3=XLSX.utils.aoa_to_sheet(d3);
+  ws3["!cols"]=[{wch:12},{wch:32},{wch:12},{wch:12},{wch:8},{wch:10}];
+  ws3["!autofilter"]={ref:"A1:F"+(d3.length)};
+  XLSX.utils.book_append_sheet(wb,ws3,"Détail par lot");
+
+  // Feuille 4 : articles
+  const d4=[["GTIN","Désignation","Code article"]];
+  articles.forEach(a=>d4.push([a.gtin,a.des,a.code]));
+  const ws4=XLSX.utils.aoa_to_sheet(d4);
+  ws4["!cols"]=[{wch:16},{wch:32},{wch:14}];
+  XLSX.utils.book_append_sheet(wb,ws4,"Articles");
+  return wb;
+}
+function exportXlsx(){
+  if(typeof XLSX==="undefined"){toast("Module Excel non chargé — connexion Internet requise la 1re fois.");return;}
+  XLSX.writeFile(buildWorkbook(),"packing_liste_"+new Date().toISOString().slice(0,10)+".xlsx");
+  toast("Export Excel généré.");
+}
+$("exportXlsx").onclick=exportXlsx;$("exportXlsx2").onclick=exportXlsx;
+
+/* ===== SAUVEGARDE APP ===== */
+$("saveApp").onclick=()=>{
+  const html=document.documentElement.outerHTML;
+  const newArr="let articles = "+JSON.stringify(articles,null,2)+"; /* END_ARTICLES */";
+  const re=/let articles = [\s\S]*?\/\* END_ARTICLES \*\//;
+  if(!re.test(html)){toast("Bloc articles introuvable.");return;}
+  download("packing_liste.html","<!DOCTYPE html>\n"+html.replace(re,newArr),"text/html;charset=utf-8");
+  toast("App sauvegardée avec "+articles.length+" article(s).");
+};
+
+$("clearScan").onclick=()=>{if(scans.length&&confirm("Effacer toutes les palettes scannées ?")){scans=[];seqCounter=0;renderAll();}};
+
+/* ===== CAMÉRA — ZXing ===== */
+let codeReader=null, camStream=null, camRunning=false;
+
+function camSetStatus(msg,cls=""){
+  const s=$("camStatus");s.textContent=msg;s.className="cam-status"+(cls?" "+cls:"");
+}
+
+async function startCam(){
+  $("camModal").classList.add("open");
+  camSetStatus("Initialisation de la caméra…");
+  try{
+    if(typeof ZXing==="undefined") throw new Error("Bibliothèque ZXing non chargée — vérifiez votre connexion Internet.");
+    codeReader=new ZXing.BrowserMultiFormatReader();
+
+    // Sélection caméra arrière via enumerateDevices (sans listVideoInputDevices)
+    let deviceId=undefined;
+    try{
+      const devices=await navigator.mediaDevices.enumerateDevices();
+      const cams=devices.filter(d=>d.kind==="videoinput");
+      // sur mobile, la caméra arrière a souvent "back" ou "environment" dans le label
+      // sinon on prend la dernière (souvent l'arrière)
+      const back=cams.find(d=>/back|rear|environment/i.test(d.label));
+      if(back) deviceId=back.deviceId;
+      else if(cams.length>1) deviceId=cams[cams.length-1].deviceId;
+      // si deviceId reste undefined, ZXing utilisera la contrainte facingMode ci-dessous
+    }catch(e){ /* pas de permission encore, on laisse ZXing gérer */ }
+
+    // Si pas de deviceId trouvé, forcer caméra arrière via constraints
+    const constraints=deviceId
+      ? {video:{deviceId:{exact:deviceId}}}
+      : {video:{facingMode:{ideal:"environment"}}};
+
+    // Démarre le flux vidéo manuellement pour appliquer les constraints
+    camStream=await navigator.mediaDevices.getUserMedia(constraints);
+    const video=$("camVideo");
+    video.srcObject=camStream;
+    await video.play();
+
+    camSetStatus("Pointez vers le code-barres…");
+    camRunning=true;
+
+    // ZXing décode sur le flux actif
+    codeReader.decodeFromStream(camStream,video,(result,err)=>{
+      if(!camRunning) return;
+      if(result){
+        const raw=result.getText();
+        const clean=raw.replace(/[()\s]/g,"");
+        if(!clean.includes("01")||clean.length<20){
+          camSetStatus("Code non reconnu — repositionnez","err");
+          setTimeout(()=>{if(camRunning)camSetStatus("Pointez vers le code-barres…");},1500);
+          return;
+        }
+        if(navigator.vibrate) navigator.vibrate([60,40,60]);
+        camSetStatus("✓ Code détecté !","ok");
+        stopCam();
+        $("scan").value=raw;
+        updatePreview();
+        setTimeout(()=>{$("qty").focus();$("qty").select();},200);
+      }
+      if(err&&!(err instanceof ZXing.NotFoundException)){
+        console.warn("ZXing:",err);
+      }
+    });
+  }catch(e){
+    camSetStatus("Erreur : "+e.message,"err");
+    console.error(e);
+  }
+}
+
+function stopCam(){
+  camRunning=false;
+  if(codeReader){try{codeReader.reset();}catch(e){} codeReader=null;}
+  if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null;}
+  const v=$("camVideo");v.srcObject=null;
+  $("camModal").classList.remove("open");
+}
+
+$("camBtn").onclick=startCam;
+$("camClose").onclick=stopCam;
+// ferme si clic sur le fond du modal
+$("camModal").addEventListener("click",e=>{if(e.target===$("camModal"))stopCam();});
+// ferme si Escape
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&camRunning)stopCam();});
+
+renderAll();$("scan").focus();
+</script>
+</body>
+</html>
