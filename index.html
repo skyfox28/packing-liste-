@@ -709,7 +709,8 @@ async function startCam(){
       ZXing.BarcodeFormat.ITF,
     ]);
     hints.set(ZXing.DecodeHintType.TRY_HARDER,true);
-    codeReader=new ZXing.BrowserMultiFormatReader(hints,150);
+    // Délai minimal entre deux tentatives de décodage : boucle de scan la plus réactive possible
+    codeReader=new ZXing.BrowserMultiFormatReader(hints,30);
 
     // Sélection caméra arrière via enumerateDevices (sans listVideoInputDevices)
     let deviceId=undefined;
@@ -725,14 +726,27 @@ async function startCam(){
     }catch(e){ /* pas de permission encore, on laisse ZXing gérer */ }
 
     // Si pas de deviceId trouvé, forcer caméra arrière via constraints
-    // Résolution demandée en 16/9 large pour laisser une meilleure marge de netteté au code-barres
+    // Résolution 720p : assez nette pour un code-barres tout en gardant chaque frame
+    // rapide à traiter (moins de pixels = boucle de décodage plus rapide)
+    const baseVideo={width:{ideal:1280},height:{ideal:720},frameRate:{ideal:30}};
     const constraints=deviceId
-      ? {video:{deviceId:{exact:deviceId},width:{ideal:1920},height:{ideal:1080}}}
-      : {video:{facingMode:{ideal:"environment"},width:{ideal:1920},height:{ideal:1080}}};
+      ? {video:{...baseVideo,deviceId:{exact:deviceId}}}
+      : {video:{...baseVideo,facingMode:{ideal:"environment"}}};
 
     // getUserMedia manuel pour appliquer nos contraintes (résolution, caméra arrière),
     // puis on laisse decodeFromStream attacher lui-même le flux à la vidéo et démarrer la lecture.
     camStream=await navigator.mediaDevices.getUserMedia(constraints);
+
+    // Autofocus continu si le navigateur le supporte (Chrome Android) — évite les frames
+    // floues qui font perdre du temps de décodage à la volée.
+    try{
+      const track=camStream.getVideoTracks()[0];
+      const caps=track.getCapabilities&&track.getCapabilities();
+      if(caps&&caps.focusMode&&caps.focusMode.includes("continuous")){
+        await track.applyConstraints({advanced:[{focusMode:"continuous"}]});
+      }
+    }catch(e){ /* non supporté — pas bloquant */ }
+
     const video=$("camVideo");
 
     camSetStatus("Pointez vers le code-barres…");
