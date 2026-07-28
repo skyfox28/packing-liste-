@@ -648,31 +648,48 @@ async function startCam(){
   try{
     if(typeof ZXing==="undefined") throw new Error("Bibliothèque ZXing non chargée — vérifiez votre connexion Internet.");
     codeReader=new ZXing.BrowserMultiFormatReader();
-    // préférer la caméra arrière sur mobile
-    const devices=await ZXing.BrowserCodeReader.listVideoInputDevices();
+
+    // Sélection caméra arrière via enumerateDevices (sans listVideoInputDevices)
     let deviceId=undefined;
-    if(devices.length>1){
-      const back=devices.find(d=>/back|rear|environment/i.test(d.label));
-      deviceId=back?back.deviceId:devices[devices.length-1].deviceId;
-    }
+    try{
+      const devices=await navigator.mediaDevices.enumerateDevices();
+      const cams=devices.filter(d=>d.kind==="videoinput");
+      // sur mobile, la caméra arrière a souvent "back" ou "environment" dans le label
+      // sinon on prend la dernière (souvent l'arrière)
+      const back=cams.find(d=>/back|rear|environment/i.test(d.label));
+      if(back) deviceId=back.deviceId;
+      else if(cams.length>1) deviceId=cams[cams.length-1].deviceId;
+      // si deviceId reste undefined, ZXing utilisera la contrainte facingMode ci-dessous
+    }catch(e){ /* pas de permission encore, on laisse ZXing gérer */ }
+
+    // Si pas de deviceId trouvé, forcer caméra arrière via constraints
+    const constraints=deviceId
+      ? {video:{deviceId:{exact:deviceId}}}
+      : {video:{facingMode:{ideal:"environment"}}};
+
+    // Démarre le flux vidéo manuellement pour appliquer les constraints
+    camStream=await navigator.mediaDevices.getUserMedia(constraints);
+    const video=$("camVideo");
+    video.srcObject=camStream;
+    await video.play();
+
     camSetStatus("Pointez vers le code-barres…");
     camRunning=true;
-    codeReader.decodeFromVideoDevice(deviceId,"camVideo",(result,err)=>{
+
+    // ZXing décode sur le flux actif
+    codeReader.decodeFromStream(camStream,video,(result,err)=>{
       if(!camRunning) return;
       if(result){
         const raw=result.getText();
-        // vérifie que c'est un code GS1 plausible (commence par 01)
         const clean=raw.replace(/[()\s]/g,"");
         if(!clean.includes("01")||clean.length<20){
           camSetStatus("Code non reconnu — repositionnez","err");
           setTimeout(()=>{if(camRunning)camSetStatus("Pointez vers le code-barres…");},1500);
           return;
         }
-        // succès : vibration, son, ferme la caméra
         if(navigator.vibrate) navigator.vibrate([60,40,60]);
         camSetStatus("✓ Code détecté !","ok");
         stopCam();
-        // remplit le champ et déclenche le flux normal
         $("scan").value=raw;
         updatePreview();
         setTimeout(()=>{$("qty").focus();$("qty").select();},200);
@@ -690,6 +707,8 @@ async function startCam(){
 function stopCam(){
   camRunning=false;
   if(codeReader){try{codeReader.reset();}catch(e){} codeReader=null;}
+  if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null;}
+  const v=$("camVideo");v.srcObject=null;
   $("camModal").classList.remove("open");
 }
 
