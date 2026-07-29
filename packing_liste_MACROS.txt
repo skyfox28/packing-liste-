@@ -419,3 +419,30 @@ Private Sub WriteDetailSheet(ws As Worksheet, groups As Object, keysArr() As Var
     ws.Range("A5").Select
     ActiveWindow.FreezePanes = True
 End Sub
+
+Sub NouveauDechargement()
+    ' Vide les palettes scannées (avec confirmation) et relance la synthèse
+    ' à zéro, pour repartir sur un nouveau déchargement.
+    Dim wsScan As Worksheet
+    Set wsScan = ThisWorkbook.Sheets("Scan")
+
+    If MsgBox("Effacer toutes les palettes scannées pour repartir sur un nouveau déchargement ?", vbYesNo + vbQuestion, "Nouveau déchargement") <> vbYes Then Exit Sub
+
+    Application.ScreenUpdating = False
+    Application.EnableEvents = False
+
+    Dim lastRow As Long
+    lastRow = wsScan.Cells(wsScan.Rows.Count, "A").End(xlUp).Row
+    If lastRow >= 5 Then
+        wsScan.Range("A5:A" & lastRow).ClearContents
+        wsScan.Range("G5:G" & lastRow).ClearContents
+    End If
+
+    Application.EnableEvents = True
+    Application.ScreenUpdating = True
+
+    wsScan.Activate
+    wsScan.Range("A5").Select
+
+    GenerateSynthese
+End Sub
