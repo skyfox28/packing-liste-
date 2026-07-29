@@ -1,0 +1,863 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Packing List — Bureau</title>
+<!-- xlsx-js-style : fork de SheetJS avec écriture des styles (couleurs, polices, bordures), nécessaire pour la charte de l'export synthèse -->
+<script src="https://unpkg.com/xlsx-js-style@1.2.0/dist/xlsx.min.js"></script>
+<style>
+  :root{
+    --bg:#000000;--bg-2:#1c1c1e;--bg-3:#2c2c2e;--bg-4:#3a3a3c;
+    --line:rgba(255,255,255,.14);--line-soft:rgba(255,255,255,.09);
+    --ink:#f5f5f7;--ink-dim:#98989d;--ink-faint:#68686d;
+    --teal:#3fd6c4;--teal-deep:#1f8f83;--amber:#f0a63c;--violet:#8b7be8;--red:#ff5b52;--green:#4bd07f;
+    --scan:#1c1c1e;--sidebar-w:236px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:var(--bg);color:var(--ink);
+    font-family:-apple-system,"SF Pro Text",system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    font-size:14.5px;line-height:1.45;-webkit-font-smoothing:antialiased;
+    display:flex;min-height:100vh;
+  }
+
+  /* ===== Barre latérale ===== */
+  aside.sidebar{
+    width:var(--sidebar-w);flex:0 0 auto;background:var(--bg-2);border-right:1px solid var(--line-soft);
+    display:flex;flex-direction:column;padding:22px 14px;position:sticky;top:0;height:100vh;
+  }
+  .brand{padding:0 8px;margin-bottom:22px}
+  .brand h1{font-size:21px;margin:0;font-weight:800;letter-spacing:-.3px}
+  .brand h1 .dot{color:var(--teal)}
+  .brand p{margin:3px 0 0;font-size:11.5px;color:var(--ink-faint);font-weight:500}
+  nav.sidenav{display:flex;flex-direction:column;gap:3px}
+  nav.sidenav button{
+    display:flex;align-items:center;gap:11px;border:none;background:transparent;color:var(--ink-dim);
+    padding:10px 12px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;text-align:left;transition:.15s;
+  }
+  nav.sidenav button .icon{font-size:17px;width:20px;text-align:center}
+  nav.sidenav button:hover{background:rgba(255,255,255,.04);color:var(--ink)}
+  nav.sidenav button.active{background:rgba(63,214,196,.13);color:var(--teal)}
+  .side-stats{margin-top:auto;display:flex;flex-direction:column;gap:8px;padding:0 8px}
+  .side-stat{background:var(--bg-3);border-radius:12px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between}
+  .side-stat b{font-size:19px;font-weight:800;font-variant-numeric:tabular-nums}
+  .side-stat.pal b{color:var(--teal)}
+  .side-stat.qte b{color:var(--amber)}
+  .side-stat span{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-faint);font-weight:700}
+  .side-hint{margin-top:14px;padding:0 8px;font-size:11px;color:var(--ink-faint);line-height:1.5}
+
+  /* ===== Contenu principal ===== */
+  main.main{flex:1 1 auto;min-width:0;padding:28px 36px 60px;max-width:1280px}
+  header.pagehead{margin-bottom:22px}
+  header.pagehead h2{margin:0;font-size:23px;font-weight:800;letter-spacing:-.3px}
+  header.pagehead p{margin:4px 0 0;font-size:13px;color:var(--ink-faint)}
+
+  section.view{display:none}
+  section.view.active{display:block;animation:fade .2s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+  .panel{background:var(--bg-2);border:1px solid var(--line-soft);border-radius:16px;padding:22px;margin-bottom:20px}
+  .section-label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-faint);margin:0 0 14px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .field{display:flex;flex-direction:column;gap:6px}
+  .field label{font-size:11px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.09em}
+
+  /* Ligne de scan : douchette branchée, le champ reste toujours au focus */
+  .scanrow{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap}
+  .scanrow .field.grow{flex:1;min-width:280px}
+  #scan{
+    font-size:17px;padding:13px 15px;border:1.5px solid var(--teal-deep);border-radius:11px;
+    background:var(--scan);color:var(--ink);width:100%;font-family:ui-monospace,Menlo,Consolas,monospace;outline:none;
+  }
+  #scan:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(63,214,196,.15)}
+  .stepper{display:flex;align-items:stretch;background:var(--bg-3);border:1.5px solid var(--line);border-radius:11px;overflow:hidden;width:170px}
+  .stepper button{width:42px;border:none;background:transparent;color:var(--teal);font-size:19px;font-weight:700;cursor:pointer;flex-shrink:0}
+  .stepper button:hover{background:rgba(63,214,196,.12)}
+  #qty{
+    flex:1;min-width:0;text-align:center;font-size:16px;font-weight:700;border:none;background:transparent;color:var(--ink);
+    outline:none;font-variant-numeric:tabular-nums;-moz-appearance:textfield;padding:13px 4px;
+  }
+  #qty::-webkit-outer-spin-button,#qty::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .btn-add{
+    border:none;background:var(--teal);color:#04231f;padding:13px 26px;border-radius:11px;
+    font-size:15px;font-weight:800;cursor:pointer;transition:.15s;flex-shrink:0;
+  }
+  .btn-add:hover{filter:brightness(1.08)}
+  .btn-add:active{transform:scale(.98)}
+  .hint{font-size:12px;color:var(--ink-faint);margin-top:12px;line-height:1.5}
+  .hint b{color:var(--ink-dim)}
+
+  .decoded{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:16px}
+  .decoded .cell{border:1px solid var(--line-soft);border-radius:11px;padding:10px 12px;background:var(--bg-3)}
+  .decoded .cell .k{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--ink-faint);font-weight:700}
+  .decoded .cell .v{font-size:14.5px;font-weight:700;margin-top:3px;word-break:break-word}
+  .decoded .cell.bad .v{color:var(--red)}
+  .decoded .cell.accent .v{color:var(--teal)}
+
+  /* Filtres */
+  .filterbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+  .searchpill{display:flex;align-items:center;gap:8px;background:var(--bg-3);border:1px solid var(--line-soft);border-radius:10px;padding:0 12px;flex:1;min-width:220px}
+  .searchpill .ic{font-size:13px;color:var(--ink-faint)}
+  .searchpill input{flex:1;border:none;background:transparent;color:var(--ink);font-size:13.5px;padding:9px 0;outline:none;font-family:inherit}
+  .filterbar select{
+    background:var(--bg-3);border:1px solid var(--line-soft);color:var(--ink);border-radius:10px;
+    padding:9px 12px;font-size:13px;font-family:inherit;outline:none;cursor:pointer;font-weight:600;min-width:180px;
+  }
+  .filterbar select:focus{border-color:var(--teal-deep)}
+  .filtag{font-size:11.5px;padding:4px 10px;background:rgba(63,214,196,.14);color:var(--teal);border-radius:8px;font-weight:700}
+
+  /* Tables desktop */
+  .tablewrap{max-height:58vh;overflow:auto;border:1px solid var(--line-soft);border-radius:12px}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th,td{padding:10px 13px;text-align:left;vertical-align:middle}
+  thead th{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-faint);background:var(--bg-3);position:sticky;top:0;z-index:1;border-bottom:1px solid var(--line-soft)}
+  tbody td{border-bottom:1px solid var(--line-soft)}
+  tbody tr:nth-child(even) td{background:rgba(255,255,255,.015)}
+  tbody tr:hover td{background:rgba(63,214,196,.05)}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+  .lot{font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--violet)}
+  .code{font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--teal)}
+  .seq{color:var(--ink-faint);font-variant-numeric:tabular-nums}
+  .pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700}
+  .pill.bad{background:rgba(255,91,82,.15);color:var(--red)}
+  tr.totrow td{border-top:1.5px solid var(--teal);font-weight:800;background:var(--bg-3)}
+  tr.lvl-art td{background:linear-gradient(90deg,rgba(63,214,196,.10),transparent 70%);border-top:1px solid var(--teal-deep);font-weight:700}
+  tr.lvl-art .artname{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  tr.lvl-art .chip{font-size:10.5px;font-weight:700;padding:2px 9px;border-radius:6px;background:rgba(63,214,196,.15);color:var(--teal);font-family:ui-monospace,monospace}
+  tr.lvl-art .meta{margin-left:auto;font-weight:600;color:var(--ink-dim);font-size:12px}
+  tr.lvl-lot td{background:rgba(139,123,232,.05)}
+  tr.lvl-lot .lotcell{padding-left:26px;position:relative}
+  tr.lvl-pal .palcell{padding-left:48px;color:var(--ink-dim)}
+  tr.lvl-pal td{font-size:12.5px}
+  .empty{padding:34px;text-align:center;color:var(--ink-faint)}
+  .flash td{animation:flash .6s ease}
+  @keyframes flash{0%{background:rgba(240,166,60,.22)}100%{background:transparent}}
+
+  /* Édition inline quantité */
+  .qty-cell{cursor:pointer;min-width:50px}
+  .qty-cell:hover{color:var(--amber)}
+  .qty-input{width:70px;background:var(--bg-3);border:1.5px solid var(--amber);color:var(--ink);
+    border-radius:6px;padding:3px 7px;font-size:13.5px;font-family:inherit;outline:none;text-align:right}
+
+  .btn{border:none;background:rgba(63,214,196,.13);color:var(--teal);padding:10px 16px;border-radius:10px;font-size:13.5px;font-weight:700;cursor:pointer;transition:.15s}
+  .btn:hover{filter:brightness(1.15)}
+  .btn:active{transform:scale(.97)}
+  .btn.ghost{background:var(--bg-3);color:var(--ink-dim)}
+  .btn.warn{background:rgba(255,91,82,.13);color:var(--red)}
+  .btn.save{background:var(--teal);color:#04231f}
+  .btnbar{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+  .edit{border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13.5px;width:100%;font-family:inherit;background:var(--bg-3);color:var(--ink);outline:none}
+  .edit:focus{border-color:var(--teal-deep)}
+  .edit.mono{font-family:ui-monospace,Menlo,Consolas,monospace}
+
+  /* Grilles multi-colonnes desktop */
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  @media(max-width:980px){.grid2{grid-template-columns:1fr}}
+
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:var(--bg-3);color:var(--ink);padding:12px 22px;border-radius:11px;font-size:14px;border:1px solid var(--line);box-shadow:0 12px 30px -10px rgba(0,0,0,.7);opacity:0;pointer-events:none;transition:opacity .25s;z-index:50;font-weight:600}
+  .toast.show{opacity:1}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:var(--line);border-radius:6px}
+
+  @media(max-width:860px){
+    aside.sidebar{width:72px;padding:18px 8px}
+    .brand p{display:none}
+    .brand h1{font-size:0}
+    .brand h1::before{content:"P.";font-size:21px}
+    nav.sidenav button .lbl{display:none}
+    nav.sidenav button{justify-content:center}
+    .side-stats,.side-hint{display:none}
+    main.main{padding:22px 18px 50px}
+  }
+</style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>Packing List<span class="dot">.</span></h1>
+      <p>Poste bureau — douchette</p>
+    </div>
+    <nav class="sidenav">
+      <button class="active" data-tab="scan"><span class="icon">📦</span><span class="lbl">Scan</span></button>
+      <button data-tab="synth"><span class="icon">📊</span><span class="lbl">Synthèse</span></button>
+      <button data-tab="art"><span class="icon">🏷️</span><span class="lbl">Articles</span></button>
+    </nav>
+    <div class="side-stats">
+      <div class="side-stat pal"><span>Palettes</span><b id="palCount">0</b></div>
+      <div class="side-stat qte"><span>Unités</span><b id="qtyCount">0</b></div>
+    </div>
+    <div class="side-hint">Douchette branchée en USB/Bluetooth : elle se comporte comme un clavier, aucune configuration requise.</div>
+  </aside>
+
+  <main class="main">
+    <!-- SCAN -->
+    <section class="view active" id="tab-scan">
+      <header class="pagehead">
+        <h2>Scanner une palette</h2>
+        <p>Douchette ou saisie clavier : le code se décode automatiquement.</p>
+      </header>
+      <div class="panel">
+        <div class="scanrow">
+          <div class="field grow">
+            <label for="scan">Code scanné</label>
+            <input id="scan" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Scannez ou saisissez un code…">
+          </div>
+          <div class="field">
+            <label for="qty">Quantité</label>
+            <div class="stepper">
+              <button type="button" id="qtyMinus" aria-label="Diminuer la quantité">−</button>
+              <input id="qty" type="number" min="0" step="1" inputmode="numeric" placeholder="0">
+              <button type="button" id="qtyPlus" aria-label="Augmenter la quantité">+</button>
+            </div>
+          </div>
+          <button class="btn-add" id="addBtn">Ajouter la palette</button>
+        </div>
+        <div class="hint">Le curseur passe automatiquement sur <b>Quantité</b> après un scan. Entrée pour valider et revenir au champ de scan. Cliquez sur une quantité dans la liste pour la modifier.</div>
+        <div class="decoded" id="preview" style="display:none">
+          <div class="cell accent"><div class="k">Code article</div><div class="v" id="pvCode">—</div></div>
+          <div class="cell"><div class="k">Désignation</div><div class="v" id="pvDes">—</div></div>
+          <div class="cell"><div class="k">GTIN</div><div class="v" id="pvGtin">—</div></div>
+          <div class="cell"><div class="k">DLUO</div><div class="v" id="pvDate">—</div></div>
+          <div class="cell"><div class="k">Lot</div><div class="v lot" id="pvLot">—</div></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="section-label">
+          <span>Palettes scannées — dans l'ordre de scan</span>
+          <span class="filtag" id="filtCount" style="display:none"></span>
+        </div>
+        <div class="filterbar">
+          <div class="searchpill">
+            <span class="ic">🔍</span>
+            <input type="text" id="fSearch" placeholder="Rechercher lot, code, désignation…">
+          </div>
+          <select id="fArticle"><option value="">Tous les articles</option></select>
+          <select id="fLot"><option value="">Tous les lots</option></select>
+          <button class="btn ghost" id="fReset">✕ Réinitialiser</button>
+        </div>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>N°</th><th>Code</th><th>Désignation</th><th>DLUO</th><th>Lot</th><th class="num">Qté</th><th></th></tr></thead>
+            <tbody id="scanBody"></tbody>
+          </table>
+        </div>
+        <div class="btnbar">
+          <button class="btn save" id="exportXlsx">Exporter en Excel</button>
+          <button class="btn ghost" id="exportScan">Détail CSV</button>
+          <button class="btn warn" id="clearScan">Tout effacer</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SYNTHESE -->
+    <section class="view" id="tab-synth">
+      <header class="pagehead">
+        <h2>Synthèse</h2>
+        <p>Récapitulatif par article et détail hiérarchique.</p>
+      </header>
+      <div class="grid2">
+        <div class="panel">
+          <div class="section-label">Récapitulatif par article</div>
+          <div class="tablewrap">
+            <table>
+              <thead><tr><th>Code</th><th>Désignation</th><th class="num">Palettes</th><th class="num">Quantité</th></tr></thead>
+              <tbody id="prodBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="section-label">Détail hiérarchique — article › lot › palette</div>
+          <div class="tablewrap">
+            <table>
+              <thead><tr><th>Article · lot · palette</th><th>DLUO</th><th class="num">Palettes</th><th class="num">Quantité</th></tr></thead>
+              <tbody id="treeBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="btnbar">
+        <button class="btn save" id="exportXlsx2">Exporter la synthèse (Excel)</button>
+        <button class="btn ghost" id="exportSynth">Synthèse CSV</button>
+      </div>
+    </section>
+
+    <!-- ARTICLES -->
+    <section class="view" id="tab-art">
+      <header class="pagehead">
+        <h2>Articles</h2>
+        <p>Table de correspondance GTIN → désignation → code article.</p>
+      </header>
+      <div class="panel">
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>GTIN</th><th>Désignation</th><th>Code article</th><th></th></tr></thead>
+            <tbody id="artBody"></tbody>
+          </table>
+        </div>
+        <div class="btnbar">
+          <button class="btn" id="addArt">+ Ajouter un article</button>
+          <button class="btn save" id="saveApp">Sauvegarder l'app (articles inclus)</button>
+          <button class="btn ghost" id="exportArt">Table CSV</button>
+        </div>
+        <div class="hint">Ajoutez ou modifiez vos GTIN, puis <b>Sauvegarder l'app</b> : un nouveau fichier HTML est téléchargé avec vos articles intégrés. Rouvrez ce fichier-là ensuite — tout est déjà rempli.</div>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+let articles = [
+  {gtin:"05449000243195", des:"TEST — Coca-Cola 33cl (EAN-13)", code:"TEST001"},
+  {gtin:"13179142040244", des:"BTE150G FRUIT ASSORTX012-VA", code:"901601698"},
+  {gtin:"13179142040251", des:"BTE150G MACEDOINE X012-VA",   code:"901601699"},
+  {gtin:"13179142040299", des:"BTE100G LAMELLE ORANGX12-VA",  code:"901602259"},
+  {gtin:"13179142040305", des:"BTE150G BIGARREAUX X012-VA",   code:"901602260"},
+  {gtin:"03179143054458", des:"BLISTER COLORANTS LIQUIDES VAHINE Espagne Portugal", code:"804880"},
+  {gtin:"03179143054441", des:"BLISTER COLORANTS LIQUIDES VAHINE Belgique",         code:"802410"},
+  {gtin:"13179140633455", des:"BLISTER COLORANTS LIQUIDES VAHINE France",           code:"202330"},
+  {gtin:"00327592305246", des:"BLIS.COLORANT PATIS. GR x12-VAHINE",                 code:"M010153"},
+  {gtin:"13179142066589", des:"PAV 20S SUCRE VANILLEX11-VA",                        code:"901770216"},
+]; /* END_ARTICLES */
+
+let scans = [];
+let seqCounter = 0;
+
+/* ===== DÉCODAGE GS1-128 ===== */
+function decode(raw){
+  if(!raw) return {gtin:"",dluo:"",lot:""};
+  let s=raw.replace(/[()\s]/g,""); const GS=String.fromCharCode(29);
+  const out={gtin:"",dluo:"",lot:""};
+  let i01=s.indexOf("01");
+  if(i01>=0&&/^\d{14}/.test(s.slice(i01+2))) out.gtin=s.slice(i01+2,i01+16);
+  let from=i01>=0?i01+16:0;
+  let i15=s.indexOf("15",from);
+  if(i15>=0&&/^\d{6}/.test(s.slice(i15+2))){
+    const d=s.slice(i15+2,i15+8),yy=+d.slice(0,2),mm=+d.slice(2,4),jj=+d.slice(4,6);
+    out.dluo=String(jj).padStart(2,"0")+"/"+String(mm).padStart(2,"0")+"/"+(2000+yy);
+  }
+  let lf=i15>=0?i15+8:from; let i10=s.indexOf("10",lf);
+  if(i10>=0){let rest=s.slice(i10+2),cut=rest.indexOf(GS);out.lot=cut>=0?rest.slice(0,cut):rest;}
+  // Repli : code produit simple (EAN-13/EAN-8/UPC-A), pas une étiquette GS1-128 complète
+  if(!out.gtin&&/^\d{6,14}$/.test(s)) out.gtin=s.padStart(14,"0");
+  return out;
+}
+function lookup(gtin){const a=articles.find(x=>x.gtin===gtin);return a?{des:a.des,code:a.code}:{des:"GTIN inconnu",code:""};}
+
+/* ===== UTILITAIRES ===== */
+const $=id=>document.getElementById(id);
+function toast(m){const t=$("toast");t.textContent=m;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2400);}
+function refreshCounters(){
+  $("palCount").textContent=scans.length;
+  $("qtyCount").textContent=scans.reduce((s,r)=>s+(+r.qty||0),0);
+}
+
+/* ===== FILTRES ===== */
+let filterArticle="", filterLot="", filterSearch="";
+
+function rebuildFilters(){
+  const artSel=$("fArticle"), lotSel=$("fLot");
+  const prevArt=artSel.value, prevLot=lotSel.value;
+  artSel.innerHTML=`<option value="">Tous les articles</option>`;
+  const arts=new Map();
+  scans.forEach(r=>{if(!arts.has(r.gtin))arts.set(r.gtin,r.code+" — "+r.des);});
+  arts.forEach((label,gtin)=>{const o=document.createElement("option");o.value=gtin;o.textContent=label;artSel.appendChild(o);});
+  artSel.value=arts.has(prevArt)?prevArt:"";
+  lotSel.innerHTML=`<option value="">Tous les lots</option>`;
+  const lots=new Set(scans.map(r=>r.lot||"(sans lot)").filter(Boolean));
+  [...lots].sort().forEach(l=>{const o=document.createElement("option");o.value=l;o.textContent=l;lotSel.appendChild(o);});
+  lotSel.value=lots.has(prevLot)?prevLot:"";
+  filterArticle=artSel.value; filterLot=lotSel.value;
+}
+
+function applyFilters(list){
+  let out=list;
+  if(filterArticle) out=out.filter(r=>r.gtin===filterArticle);
+  if(filterLot)     out=out.filter(r=>(r.lot||"(sans lot)")===filterLot);
+  if(filterSearch){
+    const q=filterSearch.toLowerCase();
+    out=out.filter(r=>(r.code||"").toLowerCase().includes(q)||(r.des||"").toLowerCase().includes(q)||(r.lot||"").toLowerCase().includes(q));
+  }
+  return out;
+}
+
+/* ===== RENDU TABLE SCAN ===== */
+function renderScanTable(){
+  rebuildFilters();
+  const filtered=applyFilters(scans);
+  const fc=$("filtCount");
+  const isFiltered=filterArticle||filterLot||filterSearch;
+  if(isFiltered&&scans.length){fc.style.display="inline";fc.textContent=filtered.length+" / "+scans.length+" palette(s)";}
+  else fc.style.display="none";
+
+  const tb=$("scanBody");tb.innerHTML="";
+  if(filtered.length===0){
+    tb.innerHTML=`<tr><td colspan="7" class="empty">${scans.length===0?"Aucune palette scannée pour l'instant.":"Aucun résultat pour les filtres actifs."}</td></tr>`;
+    refreshCounters();return;
+  }
+  filtered.forEach(r=>{
+    const idx=scans.indexOf(r);
+    const unknown=r.des==="GTIN inconnu";
+    const tr=document.createElement("tr");
+    tr.setAttribute("data-seq",r.seq);
+    tr.innerHTML=`
+      <td class="seq">${r.seq}</td>
+      <td class="code">${r.code||"—"}</td>
+      <td>${r.des}${unknown?' <span class="pill bad">inconnu</span>':''}</td>
+      <td>${r.dluo||"—"}</td>
+      <td class="lot">${r.lot||"—"}</td>
+      <td class="num qty-cell" title="Cliquer pour modifier" data-idx="${idx}">${r.qty??""}</td>
+      <td><button class="btn ghost" data-del="${idx}" style="padding:4px 10px">✕</button></td>`;
+    tb.appendChild(tr);
+  });
+  tb.querySelectorAll(".qty-cell").forEach(cell=>{
+    cell.onclick=()=>{
+      if(cell.querySelector("input")) return;
+      const idx=+cell.dataset.idx, cur=scans[idx].qty??"";
+      const inp=document.createElement("input");
+      inp.type="number";inp.className="qty-input";inp.value=cur;inp.min=0;
+      cell.textContent="";cell.appendChild(inp);inp.focus();inp.select();
+      function commit(){const v=inp.value===""?null:(+inp.value);scans[idx].qty=v;renderAll();}
+      inp.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();commit();}if(e.key==="Escape"){renderAll();}});
+      inp.addEventListener("blur",commit);
+    };
+  });
+  tb.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{scans.splice(+b.dataset.del,1);renderAll();});
+  refreshCounters();
+}
+
+/* ===== RÉCAP PAR ARTICLE ===== */
+function renderProd(){
+  const pb=$("prodBody");pb.innerHTML="";
+  const byG={};
+  scans.forEach(r=>{const g=r.gtin||"(vide)";byG[g]=byG[g]||{pal:0,qty:0,des:r.des,code:r.code};byG[g].pal++;byG[g].qty+=(+r.qty||0);});
+  let tPal=0,tQty=0; const rows=[]; const seen=new Set();
+  articles.forEach(a=>{const d=byG[a.gtin];rows.push({code:a.code,des:a.des,pal:d?d.pal:0,qty:d?d.qty:0});seen.add(a.gtin);});
+  Object.keys(byG).forEach(g=>{if(!seen.has(g))rows.push({code:byG[g].code,des:byG[g].des,pal:byG[g].pal,qty:byG[g].qty});});
+  if(rows.length===0){pb.innerHTML=`<tr><td colspan="4" class="empty">Rien à afficher — scannez des palettes.</td></tr>`;return;}
+  rows.forEach(r=>{tPal+=r.pal;tQty+=r.qty;
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td class="code">${r.code||"—"}</td><td>${r.des}</td><td class="num">${r.pal}</td><td class="num">${r.qty}</td>`;
+    pb.appendChild(tr);});
+  const tr=document.createElement("tr");tr.className="totrow";
+  tr.innerHTML=`<td>TOTAL</td><td></td><td class="num">${tPal}</td><td class="num">${tQty}</td>`;
+  pb.appendChild(tr);
+}
+
+/* ===== ARBRE HIÉRARCHIQUE ===== */
+function renderTree(){
+  const tb=$("treeBody");tb.innerHTML="";
+  if(scans.length===0){tb.innerHTML=`<tr><td colspan="4" class="empty">Rien à afficher — scannez des palettes.</td></tr>`;return;}
+  const byG={};
+  scans.forEach(r=>{const g=r.gtin||"(vide)";(byG[g]=byG[g]||[]).push(r);});
+  const known=articles.map(a=>a.gtin).filter(g=>byG[g]);
+  const unknown=Object.keys(byG).filter(g=>!articles.find(a=>a.gtin===g));
+  let gPal=0,gQty=0;
+  [...known,...unknown].forEach(g=>{
+    const list=byG[g],info=lookup(g);
+    const artPal=list.length,artQty=list.reduce((s,r)=>s+(+r.qty||0),0);
+    gPal+=artPal;gQty+=artQty;
+    const ar=document.createElement("tr");ar.className="lvl-art";
+    ar.innerHTML=`<td colspan="2"><div class="artname">
+      <span class="chip">${info.code||"—"}</span><span>${info.des}</span>
+      <span class="meta">${artPal} pal · ${artQty} u.</span></div></td>
+      <td class="num">${artPal}</td><td class="num">${artQty}</td>`;
+    tb.appendChild(ar);
+    const byL={};
+    list.forEach(r=>{(byL[r.lot||"(sans lot)"]=byL[r.lot||"(sans lot)"]||[]).push(r);});
+    Object.keys(byL).sort((a,b)=>a.localeCompare(b)).forEach(lot=>{
+      const pals=byL[lot];
+      const lotPal=pals.length,lotQty=pals.reduce((s,r)=>s+(+r.qty||0),0);
+      const lr=document.createElement("tr");lr.className="lvl-lot";
+      lr.innerHTML=`<td class="lotcell"><span class="lot">Lot ${lot}</span></td>
+        <td></td><td class="num">${lotPal}</td><td class="num">${lotQty}</td>`;
+      tb.appendChild(lr);
+      pals.sort((a,b)=>a.seq-b.seq).forEach(p=>{
+        const pr=document.createElement("tr");pr.className="lvl-pal";
+        pr.innerHTML=`<td class="palcell">Palette · scan n°${p.seq}</td>
+          <td>${p.dluo||"—"}</td><td class="num">1</td><td class="num">${p.qty??""}</td>`;
+        tb.appendChild(pr);
+      });
+    });
+  });
+  const tr=document.createElement("tr");tr.className="totrow";
+  tr.innerHTML=`<td>TOTAL</td><td></td><td class="num">${gPal}</td><td class="num">${gQty}</td>`;
+  tb.appendChild(tr);
+}
+
+/* ===== ARTICLES ===== */
+function renderArticles(){
+  const ab=$("artBody");ab.innerHTML="";
+  articles.forEach((a,idx)=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML=`
+      <td><input class="edit mono" value="${a.gtin}" data-f="gtin" data-i="${idx}"></td>
+      <td><input class="edit" value="${(a.des||'').replace(/"/g,'&quot;')}" data-f="des" data-i="${idx}"></td>
+      <td><input class="edit mono" value="${a.code||''}" data-f="code" data-i="${idx}"></td>
+      <td><button class="btn ghost" data-delart="${idx}" style="padding:4px 10px">✕</button></td>`;
+    ab.appendChild(tr);
+  });
+  ab.querySelectorAll("input.edit").forEach(inp=>inp.onchange=()=>{articles[+inp.dataset.i][inp.dataset.f]=inp.value.trim();renderAll();});
+  ab.querySelectorAll("[data-delart]").forEach(b=>b.onclick=()=>{articles.splice(+b.dataset.delart,1);renderAll();});
+}
+
+function renderAll(){renderScanTable();renderProd();renderTree();renderArticles();}
+
+/* ===== ÉVÉNEMENTS FILTRES ===== */
+$("fArticle").onchange=e=>{filterArticle=e.target.value;renderScanTable();};
+$("fLot").onchange=e=>{filterLot=e.target.value;renderScanTable();};
+$("fSearch").oninput=e=>{filterSearch=e.target.value.trim();renderScanTable();};
+$("fReset").onclick=()=>{filterArticle="";filterLot="";filterSearch="";$("fSearch").value="";$("fArticle").value="";$("fLot").value="";renderScanTable();};
+
+/* ===== PREVIEW + AJOUT ===== */
+function updatePreview(){
+  const raw=$("scan").value.trim(),pv=$("preview");
+  if(!raw){pv.style.display="none";return;}
+  const d=decode(raw),info=lookup(d.gtin);
+  pv.style.display="grid";
+  $("pvCode").textContent=info.code||"—";
+  $("pvDes").textContent=info.des;
+  $("pvDes").parentElement.classList.toggle("bad",info.des==="GTIN inconnu");
+  $("pvGtin").textContent=d.gtin||"—";
+  $("pvDate").textContent=d.dluo||"—";
+  $("pvLot").textContent=d.lot||"—";
+}
+function addScan(){
+  const raw=$("scan").value.trim();
+  if(!raw){$("scan").focus();return;}
+  const d=decode(raw),info=lookup(d.gtin);
+  const qty=$("qty").value===""?null:(+$("qty").value);
+  seqCounter++;
+  scans.push({seq:seqCounter,gtin:d.gtin,des:info.des,code:info.code,dluo:d.dluo,lot:d.lot,qty});
+  $("scan").value="";$("qty").value="";$("preview").style.display="none";
+  renderAll();$("scan").focus();
+  const rows=$("scanBody").querySelectorAll("tr");
+  if(rows.length){const last=rows[rows.length-1];last.classList.add("flash");}
+}
+$("scan").addEventListener("input",updatePreview);
+$("scan").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();if($("scan").value.trim()){$("qty").focus();$("qty").select();}}});
+$("qty").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addScan();}});
+$("addBtn").onclick=addScan;
+
+/* ===== STEPPER QUANTITÉ (+/-) ===== */
+function bumpQty(delta){
+  const cur=$("qty").value===""?0:(+$("qty").value);
+  const next=Math.max(0,cur+delta);
+  $("qty").value=next;
+}
+$("qtyMinus").onclick=()=>bumpQty(-1);
+$("qtyPlus").onclick=()=>bumpQty(1);
+
+document.querySelectorAll("nav.sidenav button").forEach(btn=>btn.onclick=()=>{
+  document.querySelectorAll("nav.sidenav button").forEach(b=>b.classList.remove("active"));
+  document.querySelectorAll("section.view").forEach(s=>s.classList.remove("active"));
+  btn.classList.add("active");$("tab-"+btn.dataset.tab).classList.add("active");
+  if(btn.dataset.tab==="scan")$("scan").focus();
+});
+$("addArt").onclick=()=>{articles.push({gtin:"",des:"",code:""});renderArticles();};
+
+/* ===== EXPORTS CSV ===== */
+function toCSV(rows){return rows.map(r=>r.map(c=>{const s=String(c??"");return /[",;\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}).join(";")).join("\r\n");}
+function download(name,text,type){const blob=new Blob([type?text:"﻿"+text],{type:type||"text/csv;charset=utf-8"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=name;a.click();URL.revokeObjectURL(url);}
+$("exportScan").onclick=()=>{const rows=[["N° scan","Code","Désignation","GTIN","DLUO","Lot","Quantité"]];applyFilters(scans).forEach(r=>rows.push([r.seq,r.code,r.des,r.gtin,r.dluo,r.lot,r.qty??""]));download("packing_detail.csv",toCSV(rows));};
+$("exportArt").onclick=()=>{const rows=[["GTIN","Désignation","Code article"]];articles.forEach(a=>rows.push([a.gtin,a.des,a.code]));download("packing_articles.csv",toCSV(rows));};
+
+function buildTreeRows(){
+  const out=[];
+  const byG={};scans.forEach(r=>{(byG[r.gtin||"(vide)"]=byG[r.gtin||"(vide)"]||[]).push(r);});
+  const order=[...articles.map(a=>a.gtin).filter(g=>byG[g]),...Object.keys(byG).filter(g=>!articles.find(a=>a.gtin===g))];
+  order.forEach(g=>{
+    const list=byG[g],info=lookup(g);
+    out.push(["Article",info.code,info.des,list.length,list.reduce((s,r)=>s+(+r.qty||0),0)]);
+    const byL={};list.forEach(r=>{(byL[r.lot||"(sans lot)"]=byL[r.lot||"(sans lot)"]||[]).push(r);});
+    Object.keys(byL).sort((a,b)=>a.localeCompare(b)).forEach(lot=>{
+      const pals=byL[lot];
+      out.push(["  Lot",lot,"",pals.length,pals.reduce((s,r)=>s+(+r.qty||0),0)]);
+      pals.sort((a,b)=>a.seq-b.seq).forEach(p=>out.push(["    Palette","scan n°"+p.seq,p.dluo,1,p.qty??""]));
+    });
+  });
+  return out;
+}
+$("exportSynth").onclick=()=>{
+  const rows=[["=== PAR ARTICLE ==="],["Code","Désignation","Palettes","Quantité"]];
+  const byG={};scans.forEach(r=>{const g=r.gtin||"(vide)";byG[g]=byG[g]||{pal:0,qty:0,des:r.des,code:r.code};byG[g].pal++;byG[g].qty+=(+r.qty||0);});
+  articles.forEach(a=>{const d=byG[a.gtin];rows.push([a.code,a.des,d?d.pal:0,d?d.qty:0]);});
+  Object.keys(byG).forEach(g=>{if(!articles.find(a=>a.gtin===g))rows.push([byG[g].code,byG[g].des,byG[g].pal,byG[g].qty]);});
+  rows.push([]);rows.push(["=== HIÉRARCHIQUE : article > lot > palette ==="],["Niveau","Code / Lot / Palette","Désignation / DLUO","Palettes","Quantité"]);
+  buildTreeRows().forEach(t=>rows.push(t));
+  download("packing_synthese.csv",toCSV(rows));
+};
+
+/* ===== EXPORT EXCEL (.xlsx) avec AutoFilter — 4 feuilles brutes ===== */
+function buildWorkbook(){
+  const wb=XLSX.utils.book_new();
+
+  const d1=[["N° scan","Code article","Désignation","GTIN","DLUO","Lot","Quantité"]];
+  scans.forEach(r=>d1.push([r.seq,r.code,r.des,r.gtin,r.dluo,r.lot,r.qty??""]));
+  const ws1=XLSX.utils.aoa_to_sheet(d1);
+  ws1["!cols"]=[{wch:8},{wch:12},{wch:32},{wch:16},{wch:12},{wch:12},{wch:10}];
+  ws1["!autofilter"]={ref:"A1:G"+(d1.length)};
+  XLSX.utils.book_append_sheet(wb,ws1,"Ordre de scan");
+
+  const byG={};scans.forEach(r=>{const g=r.gtin||"(vide)";byG[g]=byG[g]||{pal:0,qty:0,des:r.des,code:r.code};byG[g].pal++;byG[g].qty+=(+r.qty||0);});
+  const d2=[["Code article","Désignation","Palettes","Quantité"]];let tp=0,tq=0;
+  articles.forEach(a=>{const d=byG[a.gtin];const pal=d?d.pal:0,q=d?d.qty:0;tp+=pal;tq+=q;d2.push([a.code,a.des,pal,q]);});
+  Object.keys(byG).forEach(g=>{if(!articles.find(a=>a.gtin===g)){tp+=byG[g].pal;tq+=byG[g].qty;d2.push([byG[g].code,byG[g].des,byG[g].pal,byG[g].qty]);}});
+  d2.push(["TOTAL","",tp,tq]);
+  const ws2=XLSX.utils.aoa_to_sheet(d2);
+  ws2["!cols"]=[{wch:12},{wch:32},{wch:10},{wch:10}];
+  ws2["!autofilter"]={ref:"A1:D"+(d2.length)};
+  XLSX.utils.book_append_sheet(wb,ws2,"Par article");
+
+  const d3=[["Code article","Désignation","Lot","DLUO","N° scan","Quantité"]];
+  const byGg={};scans.forEach((r,i)=>{(byGg[r.gtin||"(vide)"]=byGg[r.gtin||"(vide)"]||[]).push(r);});
+  const order=[...articles.map(a=>a.gtin).filter(g=>byGg[g]),...Object.keys(byGg).filter(g=>!articles.find(a=>a.gtin===g))];
+  order.forEach(g=>{
+    const list=byGg[g];const info=lookup(g);
+    const byL={};list.forEach(r=>{(byL[r.lot||"(sans lot)"]=byL[r.lot||"(sans lot)"]||[]).push(r);});
+    Object.keys(byL).sort((a,b)=>a.localeCompare(b)).forEach(lot=>{
+      byL[lot].sort((a,b)=>a.seq-b.seq).forEach(p=>d3.push([info.code,info.des,p.lot,p.dluo,p.seq,p.qty??""]));
+    });
+  });
+  const ws3=XLSX.utils.aoa_to_sheet(d3);
+  ws3["!cols"]=[{wch:12},{wch:32},{wch:12},{wch:12},{wch:8},{wch:10}];
+  ws3["!autofilter"]={ref:"A1:F"+(d3.length)};
+  XLSX.utils.book_append_sheet(wb,ws3,"Détail par lot");
+
+  const d4=[["GTIN","Désignation","Code article"]];
+  articles.forEach(a=>d4.push([a.gtin,a.des,a.code]));
+  const ws4=XLSX.utils.aoa_to_sheet(d4);
+  ws4["!cols"]=[{wch:16},{wch:32},{wch:14}];
+  XLSX.utils.book_append_sheet(wb,ws4,"Articles");
+  return wb;
+}
+function exportXlsx(){
+  if(typeof XLSX==="undefined"){toast("Module Excel non chargé — connexion Internet requise la 1re fois.");return;}
+  XLSX.writeFile(buildWorkbook(),"packing_liste_"+new Date().toISOString().slice(0,10)+".xlsx");
+  toast("Export Excel généré.");
+}
+$("exportXlsx").onclick=exportXlsx;
+
+/* ===== EXPORT EXCEL — SYNTHÈSE PACKING LISTE (cahier des charges) =====
+   2 onglets mis en forme : "Synthèse" (1 ligne / article) et "Détail
+   palettes" (groupé par article, complètes puis incomplètes). Nécessite
+   xlsx-js-style (écriture des couleurs/polices/bordures). */
+const XLS_FONT="Arial";
+const XLS_COL_TITLE_BG="1F3864", XLS_COL_TITLE_FG="FFFFFF";
+const XLS_COL_HEAD_BG="2E5496", XLS_COL_HEAD_FG="FFFFFF";
+const XLS_COL_BAND_BG="C9D6EA", XLS_COL_BAND_FG="1F3864";
+const XLS_COL_ZEBRA="EAF0FA";
+const XLS_COL_SUBTITLE_BG="D9E1F2";
+const XLS_COL_TOTAL_BG="FFE699";
+const XLS_COL_INCOMPLETE_BG="FCE4D6";
+const XLS_COL_BORDER="B0B8C8";
+
+function xlsFont(extra){return Object.assign({name:XLS_FONT},extra||{});}
+function xlsBorder(){
+  const b={style:"thin",color:{rgb:XLS_COL_BORDER}};
+  return {top:b,bottom:b,left:b,right:b};
+}
+function xlsFmtDate(d){return String(d.getDate()).padStart(2,"0")+"/"+String(d.getMonth()+1).padStart(2,"0")+"/"+d.getFullYear();}
+function xlsSetCell(ws,r,c,v,isNum){
+  const ref=XLSX.utils.encode_cell({r,c});
+  ws[ref]={v:v==null?"":v, t:isNum?"n":"s"};
+  return ws[ref];
+}
+function xlsEnsureCell(ws,r,c){
+  const ref=XLSX.utils.encode_cell({r,c});
+  if(!ws[ref]) ws[ref]={v:"",t:"s"};
+  return ws[ref];
+}
+function xlsStyleRange(ws,r1,c1,r2,c2,style){
+  for(let r=r1;r<=r2;r++) for(let c=c1;c<=c2;c++) xlsEnsureCell(ws,r,c).s=style;
+}
+
+// QteStd = quantité la plus fréquente (mode) parmi les palettes d'un même code article.
+// Les lignes sans code article (GTIN inconnu / vide) sont ignorées, comme demandé.
+function computeArticleGroups(){
+  const byCode={};
+  scans.forEach(r=>{if(!r.code) return; (byCode[r.code]=byCode[r.code]||[]).push(r);});
+  const groups=Object.keys(byCode).map(code=>{
+    const list=byCode[code];
+    const freq={};
+    list.forEach(r=>{const q=r.qty??0; freq[q]=(freq[q]||0)+1;});
+    let qteStd=0,bestCount=-1;
+    Object.keys(freq).forEach(qStr=>{
+      const q=+qStr,c=freq[qStr];
+      if(c>bestCount||(c===bestCount&&q>qteStd)){qteStd=q;bestCount=c;}
+    });
+    const pal=list.length, qty=list.reduce((s,r)=>s+(+r.qty||0),0);
+    return {code, des:list[0].des, qteStd, pal, qty, list};
+  });
+  groups.sort((a,b)=>b.qty-a.qty); // quantité totale décroissante
+  return groups;
+}
+
+function buildSynthSheet(groups){
+  const ws={};
+  const lastCol=4; // A..E
+  xlsSetCell(ws,0,0,"SYNTHÈSE PACKING LISTE — "+xlsFmtDate(new Date()));
+  const totalPal=groups.reduce((s,g)=>s+g.pal,0), totalQty=groups.reduce((s,g)=>s+g.qty,0);
+  xlsSetCell(ws,1,0,"Total : "+totalPal+" palettes  •  "+totalQty+" unités");
+  ["Code article","Désignation","Qté / palette","Palettes","Quantité totale"].forEach((h,c)=>xlsSetCell(ws,3,c,h));
+  groups.forEach((g,i)=>{
+    const r=4+i;
+    xlsSetCell(ws,r,0,g.code);
+    xlsSetCell(ws,r,1,g.des);
+    xlsSetCell(ws,r,2,g.qteStd,true);
+    xlsSetCell(ws,r,3,g.pal,true);
+    xlsSetCell(ws,r,4,g.qty,true);
+  });
+  const totalRow=4+groups.length;
+  xlsSetCell(ws,totalRow,0,"TOTAL");
+  xlsEnsureCell(ws,totalRow,1);xlsEnsureCell(ws,totalRow,2);
+  if(groups.length>0){
+    const first=5, last=4+groups.length; // lignes Excel 1-indexées
+    ws[XLSX.utils.encode_cell({r:totalRow,c:3})]={t:"n",v:totalPal,f:"SUM(D"+first+":D"+last+")"};
+    ws[XLSX.utils.encode_cell({r:totalRow,c:4})]={t:"n",v:totalQty,f:"SUM(E"+first+":E"+last+")"};
+  }else{
+    xlsSetCell(ws,totalRow,3,0,true);
+    xlsSetCell(ws,totalRow,4,0,true);
+  }
+
+  ws["!ref"]=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:totalRow,c:lastCol}});
+  ws["!merges"]=[{s:{r:0,c:0},e:{r:0,c:lastCol}},{s:{r:1,c:0},e:{r:1,c:lastCol}}];
+  ws["!cols"]=[{wch:14},{wch:34},{wch:14},{wch:12},{wch:16}];
+  ws["!freeze"]={xSplit:0,ySplit:4,topLeftCell:"A5",activePane:"bottomLeft",state:"frozen"};
+
+  xlsStyleRange(ws,0,0,0,lastCol,{font:xlsFont({bold:true,sz:13,color:{rgb:XLS_COL_TITLE_FG}}),fill:{patternType:"solid",fgColor:{rgb:XLS_COL_TITLE_BG}},alignment:{horizontal:"center",vertical:"center"}});
+  xlsStyleRange(ws,1,0,1,lastCol,{font:xlsFont({bold:true,color:{rgb:XLS_COL_TITLE_BG}}),fill:{patternType:"solid",fgColor:{rgb:XLS_COL_SUBTITLE_BG}},alignment:{horizontal:"center",vertical:"center"}});
+  for(let c=0;c<=lastCol;c++) xlsEnsureCell(ws,3,c).s={font:xlsFont({bold:true,color:{rgb:XLS_COL_HEAD_FG}}),fill:{patternType:"solid",fgColor:{rgb:XLS_COL_HEAD_BG}},alignment:{horizontal:"center",vertical:"center"},border:xlsBorder()};
+  groups.forEach((g,i)=>{
+    const r=4+i, zebra=i%2===1;
+    for(let c=0;c<=lastCol;c++){
+      const cell=xlsEnsureCell(ws,r,c);
+      const style={font:xlsFont({}),alignment:{horizontal:c===1?"left":"center",vertical:"center"},border:xlsBorder()};
+      if(zebra) style.fill={patternType:"solid",fgColor:{rgb:XLS_COL_ZEBRA}};
+      if(c>=2) style.numFmt="#,##0";
+      cell.s=style;
+    }
+  });
+  for(let c=0;c<=lastCol;c++){
+    const cell=xlsEnsureCell(ws,totalRow,c);
+    cell.s={font:xlsFont({bold:true}),fill:{patternType:"solid",fgColor:{rgb:XLS_COL_TOTAL_BG}},alignment:{horizontal:c===1?"left":"center",vertical:"center"},border:xlsBorder(),numFmt:c>=3?"#,##0":undefined};
+  }
+  return ws;
+}
+
+function buildDetailSheet(groups){
+  const ws={};
+  const lastCol=5; // A..F
+  xlsSetCell(ws,0,0,"DÉTAIL PALETTES PAR ARTICLE");
+  xlsSetCell(ws,1,0,"Tri : palettes complètes d'abord (par lot puis n° scan), incomplètes en fin de bloc");
+  ["N° palette","Code article","Désignation","Lot","DLUO","Quantité"].forEach((h,c)=>xlsSetCell(ws,3,c,h));
+
+  let r=4;
+  const bandeauRows=[], incompleteRows=[], qtySegments=[], merges=[
+    {s:{r:0,c:0},e:{r:0,c:lastCol}},{s:{r:1,c:0},e:{r:1,c:lastCol}},
+  ];
+  let totalQty=0;
+  groups.forEach(g=>{
+    const label=g.code+" — "+g.des+"   ("+g.pal+" pal. / "+g.qty+" u. / std "+g.qteStd+")";
+    xlsSetCell(ws,r,0,label);
+    merges.push({s:{r,c:0},e:{r,c:lastCol}});
+    bandeauRows.push(r);
+    r++;
+    const segStart=r;
+    const sorted=g.list.slice().sort((a,b)=>{
+      const ai=(a.qty??0)<g.qteStd?1:0, bi=(b.qty??0)<g.qteStd?1:0;
+      if(ai!==bi) return ai-bi;
+      const lc=(a.lot||"").localeCompare(b.lot||"");
+      if(lc!==0) return lc;
+      return a.seq-b.seq;
+    });
+    sorted.forEach(p=>{
+      const incomplete=(p.qty??0)<g.qteStd;
+      xlsSetCell(ws,r,0,p.seq,true);
+      xlsSetCell(ws,r,1,g.code);
+      xlsSetCell(ws,r,2,g.des);
+      xlsSetCell(ws,r,3,p.lot||"");
+      xlsSetCell(ws,r,4,p.dluo||"");
+      xlsSetCell(ws,r,5,p.qty??0,true);
+      totalQty+=(+p.qty||0);
+      if(incomplete) incompleteRows.push(r);
+      r++;
+    });
+    if(r>segStart) qtySegments.push([segStart,r-1]);
+  });
+  const totalRow=r;
+  xlsSetCell(ws,totalRow,0,"TOTAL");
+  for(let c=1;c<=4;c++) xlsEnsureCell(ws,totalRow,c);
+  if(qtySegments.length>0){
+    const f="SUM("+qtySegments.map(([s,e])=>"F"+(s+1)+":F"+(e+1)).join(",")+")";
+    ws[XLSX.utils.encode_cell({r:totalRow,c:5})]={t:"n",v:totalQty,f};
+  }else{
+    xlsSetCell(ws,totalRow,5,0,true);
+  }
+
+  ws["!ref"]=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:totalRow,c:lastCol}});
+  ws["!merges"]=merges;
+  ws["!cols"]=[{wch:11},{wch:12},{wch:34},{wch:12},{wch:12},{wch:11}];
+  ws["!freeze"]={xSplit:0,ySplit:4,topLeftCell:"A5",activePane:"bottomLeft",state:"frozen"};
+
+  xlsStyleRange(ws,0,0,0,lastCol,{font:xlsFont({bold:true,sz:13,color:{rgb:XLS_COL_TITLE_FG}}),fill:{patternType:"solid",fgColor:{rgb:XLS_COL_TITLE_BG}},alignment:{horizontal:"center",vertical:"center"}});
+  xlsStyleRange(ws,1,0,1,lastCol,{font:xlsFont({bold:true,color:{rgb:XLS_COL_TITLE_BG}}),fill:{patternType:"solid",fgColor:{rgb:XLS_COL_SUBTITLE_BG}},alignment:{horizontal:"center",vertical:"center"}});
+  for(let c=0;c<=lastCol;c++) xlsEnsureCell(ws,3,c).s={font:xlsFont({bold:true,color:{rgb:XLS_COL_HEAD_FG}}),fill:{patternType:"solid",fgColor:{rgb:XLS_COL_HEAD_BG}},alignment:{horizontal:"center",vertical:"center"},border:xlsBorder()};
+  bandeauRows.forEach(r=>{xlsStyleRange(ws,r,0,r,lastCol,{font:xlsFont({bold:true,color:{rgb:XLS_COL_BAND_FG}}),fill:{patternType:"solid",fgColor:{rgb:XLS_COL_BAND_BG}},alignment:{horizontal:"left",vertical:"center"}});});
+  const bandeauSet=new Set(bandeauRows), incompleteSet=new Set(incompleteRows);
+  let zebraCount=0;
+  for(let rr=4;rr<totalRow;rr++){
+    if(bandeauSet.has(rr)) continue;
+    const zebra=(zebraCount++)%2===1;
+    const incomplete=incompleteSet.has(rr);
+    for(let c=0;c<=lastCol;c++){
+      const cell=xlsEnsureCell(ws,rr,c);
+      const style={font:xlsFont({}),alignment:{horizontal:c===2?"left":"center",vertical:"center"},border:xlsBorder()};
+      if(incomplete) style.fill={patternType:"solid",fgColor:{rgb:XLS_COL_INCOMPLETE_BG}};
+      else if(zebra) style.fill={patternType:"solid",fgColor:{rgb:XLS_COL_ZEBRA}};
+      if(c===0||c===5) style.numFmt="#,##0";
+      cell.s=style;
+    }
+  }
+  for(let c=0;c<=lastCol;c++){
+    const cell=xlsEnsureCell(ws,totalRow,c);
+    cell.s={font:xlsFont({bold:true}),fill:{patternType:"solid",fgColor:{rgb:XLS_COL_TOTAL_BG}},alignment:{horizontal:c===2?"left":"center",vertical:"center"},border:xlsBorder(),numFmt:c===5?"#,##0":undefined};
+  }
+  return ws;
+}
+
+function buildSynthesisWorkbook(){
+  const groups=computeArticleGroups();
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,buildSynthSheet(groups),"Synthèse");
+  XLSX.utils.book_append_sheet(wb,buildDetailSheet(groups),"Détail palettes");
+  return wb;
+}
+function exportSynthesisXlsx(){
+  if(typeof XLSX==="undefined"){toast("Module Excel non chargé — connexion Internet requise la 1re fois.");return;}
+  const d=new Date();
+  const name="Synthese_packing_liste_"+d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")+".xlsx";
+  XLSX.writeFile(buildSynthesisWorkbook(),name);
+  toast("Export synthèse généré.");
+}
+$("exportXlsx2").onclick=exportSynthesisXlsx;
+
+/* ===== SAUVEGARDE APP ===== */
+$("saveApp").onclick=()=>{
+  const html=document.documentElement.outerHTML;
+  const newArr="let articles = "+JSON.stringify(articles,null,2)+"; /* END_ARTICLES */";
+  const re=/let articles = [\s\S]*?\/\* END_ARTICLES \*\//;
+  if(!re.test(html)){toast("Bloc articles introuvable.");return;}
+  download("packing_liste_bureau.html","<!DOCTYPE html>\n"+html.replace(re,newArr),"text/html;charset=utf-8");
+  toast("App sauvegardée avec "+articles.length+" article(s).");
+};
+
+$("clearScan").onclick=()=>{if(scans.length&&confirm("Effacer toutes les palettes scannées ?")){scans=[];seqCounter=0;renderAll();}};
+
+renderAll();$("scan").focus();
+</script>
+</body>
+</html>

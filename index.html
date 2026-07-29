@@ -5,7 +5,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Packing List — expédition</title>
-<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+<!-- xlsx-js-style : fork de SheetJS avec écriture des styles (couleurs, polices, bordures), nécessaire pour la charte de l'export synthèse -->
+<script src="https://unpkg.com/xlsx-js-style@1.2.0/dist/xlsx.min.js"></script>
 <script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
 <style>
   :root{
@@ -346,7 +347,7 @@
       <div class="section-label">Détail par lot — article › lot › palette</div>
       <div class="list" id="treeBody"></div>
       <div class="btnbar">
-        <button class="btn save" id="exportXlsx2">Exporter en Excel</button>
+        <button class="btn save" id="exportXlsx2">Exporter la synthèse (Excel)</button>
         <button class="btn ghost" id="exportSynth">Synthèse CSV</button>
       </div>
     </div>
@@ -744,7 +745,211 @@ function exportXlsx(){
   XLSX.writeFile(buildWorkbook(),"packing_liste_"+new Date().toISOString().slice(0,10)+".xlsx");
   toast("Export Excel généré.");
 }
-$("exportXlsx").onclick=exportXlsx;$("exportXlsx2").onclick=exportXlsx;
+$("exportXlsx").onclick=exportXlsx;
+
+/* ===== EXPORT EXCEL — SYNTHÈSE PACKING LISTE (cahier des charges) =====
+   2 onglets mis en forme : "Synthèse" (1 ligne / article) et "Détail
+   palettes" (groupé par article, complètes puis incomplètes). Nécessite
+   xlsx-js-style (écriture des couleurs/polices/bordures). */
+const XLS_FONT="Arial";
+const XLS_COL_TITLE_BG="1F3864", XLS_COL_TITLE_FG="FFFFFF";
+const XLS_COL_HEAD_BG="2E5496", XLS_COL_HEAD_FG="FFFFFF";
+const XLS_COL_BAND_BG="C9D6EA", XLS_COL_BAND_FG="1F3864";
+const XLS_COL_ZEBRA="EAF0FA";
+const XLS_COL_SUBTITLE_BG="D9E1F2";
+const XLS_COL_TOTAL_BG="FFE699";
+const XLS_COL_INCOMPLETE_BG="FCE4D6";
+const XLS_COL_BORDER="B0B8C8";
+
+function xlsFont(extra){return Object.assign({name:XLS_FONT},extra||{});}
+function xlsBorder(){
+  const b={style:"thin",color:{rgb:XLS_COL_BORDER}};
+  return {top:b,bottom:b,left:b,right:b};
+}
+function xlsFmtDate(d){return String(d.getDate()).padStart(2,"0")+"/"+String(d.getMonth()+1).padStart(2,"0")+"/"+d.getFullYear();}
+function xlsSetCell(ws,r,c,v,isNum){
+  const ref=XLSX.utils.encode_cell({r,c});
+  ws[ref]={v:v==null?"":v, t:isNum?"n":"s"};
+  return ws[ref];
+}
+function xlsEnsureCell(ws,r,c){
+  const ref=XLSX.utils.encode_cell({r,c});
+  if(!ws[ref]) ws[ref]={v:"",t:"s"};
+  return ws[ref];
+}
+function xlsStyleRange(ws,r1,c1,r2,c2,style){
+  for(let r=r1;r<=r2;r++) for(let c=c1;c<=c2;c++) xlsEnsureCell(ws,r,c).s=style;
+}
+
+// QteStd = quantité la plus fréquente (mode) parmi les palettes d'un même code article.
+// Les lignes sans code article (GTIN inconnu / vide) sont ignorées, comme demandé.
+function computeArticleGroups(){
+  const byCode={};
+  scans.forEach(r=>{if(!r.code) return; (byCode[r.code]=byCode[r.code]||[]).push(r);});
+  const groups=Object.keys(byCode).map(code=>{
+    const list=byCode[code];
+    const freq={};
+    list.forEach(r=>{const q=r.qty??0; freq[q]=(freq[q]||0)+1;});
+    let qteStd=0,bestCount=-1;
+    Object.keys(freq).forEach(qStr=>{
+      const q=+qStr,c=freq[qStr];
+      if(c>bestCount||(c===bestCount&&q>qteStd)){qteStd=q;bestCount=c;}
+    });
+    const pal=list.length, qty=list.reduce((s,r)=>s+(+r.qty||0),0);
+    return {code, des:list[0].des, qteStd, pal, qty, list};
+  });
+  groups.sort((a,b)=>b.qty-a.qty); // quantité totale décroissante
+  return groups;
+}
+
+function buildSynthSheet(groups){
+  const ws={};
+  const lastCol=4; // A..E
+  xlsSetCell(ws,0,0,"SYNTHÈSE PACKING LISTE — "+xlsFmtDate(new Date()));
+  const totalPal=groups.reduce((s,g)=>s+g.pal,0), totalQty=groups.reduce((s,g)=>s+g.qty,0);
+  xlsSetCell(ws,1,0,"Total : "+totalPal+" palettes  •  "+totalQty+" unités");
+  ["Code article","Désignation","Qté / palette","Palettes","Quantité totale"].forEach((h,c)=>xlsSetCell(ws,3,c,h));
+  groups.forEach((g,i)=>{
+    const r=4+i;
+    xlsSetCell(ws,r,0,g.code);
+    xlsSetCell(ws,r,1,g.des);
+    xlsSetCell(ws,r,2,g.qteStd,true);
+    xlsSetCell(ws,r,3,g.pal,true);
+    xlsSetCell(ws,r,4,g.qty,true);
+  });
+  const totalRow=4+groups.length;
+  xlsSetCell(ws,totalRow,0,"TOTAL");
+  xlsEnsureCell(ws,totalRow,1);xlsEnsureCell(ws,totalRow,2);
+  if(groups.length>0){
+    const first=5, last=4+groups.length; // lignes Excel 1-indexées
+    ws[XLSX.utils.encode_cell({r:totalRow,c:3})]={t:"n",v:totalPal,f:"SUM(D"+first+":D"+last+")"};
+    ws[XLSX.utils.encode_cell({r:totalRow,c:4})]={t:"n",v:totalQty,f:"SUM(E"+first+":E"+last+")"};
+  }else{
+    xlsSetCell(ws,totalRow,3,0,true);
+    xlsSetCell(ws,totalRow,4,0,true);
+  }
+
+  ws["!ref"]=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:totalRow,c:lastCol}});
+  ws["!merges"]=[{s:{r:0,c:0},e:{r:0,c:lastCol}},{s:{r:1,c:0},e:{r:1,c:lastCol}}];
+  ws["!cols"]=[{wch:14},{wch:34},{wch:14},{wch:12},{wch:16}];
+  ws["!freeze"]={xSplit:0,ySplit:4,topLeftCell:"A5",activePane:"bottomLeft",state:"frozen"};
+
+  xlsStyleRange(ws,0,0,0,lastCol,{font:xlsFont({bold:true,sz:13,color:{rgb:XLS_COL_TITLE_FG}}),fill:{patternType:"solid",fgColor:{rgb:XLS_COL_TITLE_BG}},alignment:{horizontal:"center",vertical:"center"}});
+  xlsStyleRange(ws,1,0,1,lastCol,{font:xlsFont({bold:true,color:{rgb:XLS_COL_TITLE_BG}}),fill:{patternType:"solid",fgColor:{rgb:XLS_COL_SUBTITLE_BG}},alignment:{horizontal:"center",vertical:"center"}});
+  for(let c=0;c<=lastCol;c++) xlsEnsureCell(ws,3,c).s={font:xlsFont({bold:true,color:{rgb:XLS_COL_HEAD_FG}}),fill:{patternType:"solid",fgColor:{rgb:XLS_COL_HEAD_BG}},alignment:{horizontal:"center",vertical:"center"},border:xlsBorder()};
+  groups.forEach((g,i)=>{
+    const r=4+i, zebra=i%2===1;
+    for(let c=0;c<=lastCol;c++){
+      const cell=xlsEnsureCell(ws,r,c);
+      const style={font:xlsFont({}),alignment:{horizontal:c===1?"left":"center",vertical:"center"},border:xlsBorder()};
+      if(zebra) style.fill={patternType:"solid",fgColor:{rgb:XLS_COL_ZEBRA}};
+      if(c>=2) style.numFmt="#,##0";
+      cell.s=style;
+    }
+  });
+  for(let c=0;c<=lastCol;c++){
+    const cell=xlsEnsureCell(ws,totalRow,c);
+    cell.s={font:xlsFont({bold:true}),fill:{patternType:"solid",fgColor:{rgb:XLS_COL_TOTAL_BG}},alignment:{horizontal:c===1?"left":"center",vertical:"center"},border:xlsBorder(),numFmt:c>=3?"#,##0":undefined};
+  }
+  return ws;
+}
+
+function buildDetailSheet(groups){
+  const ws={};
+  const lastCol=5; // A..F
+  xlsSetCell(ws,0,0,"DÉTAIL PALETTES PAR ARTICLE");
+  xlsSetCell(ws,1,0,"Tri : palettes complètes d'abord (par lot puis n° scan), incomplètes en fin de bloc");
+  ["N° palette","Code article","Désignation","Lot","DLUO","Quantité"].forEach((h,c)=>xlsSetCell(ws,3,c,h));
+
+  let r=4;
+  const bandeauRows=[], incompleteRows=[], qtySegments=[], merges=[
+    {s:{r:0,c:0},e:{r:0,c:lastCol}},{s:{r:1,c:0},e:{r:1,c:lastCol}},
+  ];
+  let totalQty=0;
+  groups.forEach(g=>{
+    const label=g.code+" — "+g.des+"   ("+g.pal+" pal. / "+g.qty+" u. / std "+g.qteStd+")";
+    xlsSetCell(ws,r,0,label);
+    merges.push({s:{r,c:0},e:{r,c:lastCol}});
+    bandeauRows.push(r);
+    r++;
+    const segStart=r;
+    const sorted=g.list.slice().sort((a,b)=>{
+      const ai=(a.qty??0)<g.qteStd?1:0, bi=(b.qty??0)<g.qteStd?1:0;
+      if(ai!==bi) return ai-bi;
+      const lc=(a.lot||"").localeCompare(b.lot||"");
+      if(lc!==0) return lc;
+      return a.seq-b.seq;
+    });
+    sorted.forEach(p=>{
+      const incomplete=(p.qty??0)<g.qteStd;
+      xlsSetCell(ws,r,0,p.seq,true);
+      xlsSetCell(ws,r,1,g.code);
+      xlsSetCell(ws,r,2,g.des);
+      xlsSetCell(ws,r,3,p.lot||"");
+      xlsSetCell(ws,r,4,p.dluo||"");
+      xlsSetCell(ws,r,5,p.qty??0,true);
+      totalQty+=(+p.qty||0);
+      if(incomplete) incompleteRows.push(r);
+      r++;
+    });
+    if(r>segStart) qtySegments.push([segStart,r-1]);
+  });
+  const totalRow=r;
+  xlsSetCell(ws,totalRow,0,"TOTAL");
+  for(let c=1;c<=4;c++) xlsEnsureCell(ws,totalRow,c);
+  if(qtySegments.length>0){
+    const f="SUM("+qtySegments.map(([s,e])=>"F"+(s+1)+":F"+(e+1)).join(",")+")";
+    ws[XLSX.utils.encode_cell({r:totalRow,c:5})]={t:"n",v:totalQty,f};
+  }else{
+    xlsSetCell(ws,totalRow,5,0,true);
+  }
+
+  ws["!ref"]=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:totalRow,c:lastCol}});
+  ws["!merges"]=merges;
+  ws["!cols"]=[{wch:11},{wch:12},{wch:34},{wch:12},{wch:12},{wch:11}];
+  ws["!freeze"]={xSplit:0,ySplit:4,topLeftCell:"A5",activePane:"bottomLeft",state:"frozen"};
+
+  xlsStyleRange(ws,0,0,0,lastCol,{font:xlsFont({bold:true,sz:13,color:{rgb:XLS_COL_TITLE_FG}}),fill:{patternType:"solid",fgColor:{rgb:XLS_COL_TITLE_BG}},alignment:{horizontal:"center",vertical:"center"}});
+  xlsStyleRange(ws,1,0,1,lastCol,{font:xlsFont({bold:true,color:{rgb:XLS_COL_TITLE_BG}}),fill:{patternType:"solid",fgColor:{rgb:XLS_COL_SUBTITLE_BG}},alignment:{horizontal:"center",vertical:"center"}});
+  for(let c=0;c<=lastCol;c++) xlsEnsureCell(ws,3,c).s={font:xlsFont({bold:true,color:{rgb:XLS_COL_HEAD_FG}}),fill:{patternType:"solid",fgColor:{rgb:XLS_COL_HEAD_BG}},alignment:{horizontal:"center",vertical:"center"},border:xlsBorder()};
+  bandeauRows.forEach(r=>{xlsStyleRange(ws,r,0,r,lastCol,{font:xlsFont({bold:true,color:{rgb:XLS_COL_BAND_FG}}),fill:{patternType:"solid",fgColor:{rgb:XLS_COL_BAND_BG}},alignment:{horizontal:"left",vertical:"center"}});});
+  const bandeauSet=new Set(bandeauRows), incompleteSet=new Set(incompleteRows);
+  let zebraCount=0;
+  for(let rr=4;rr<totalRow;rr++){
+    if(bandeauSet.has(rr)) continue;
+    const zebra=(zebraCount++)%2===1;
+    const incomplete=incompleteSet.has(rr);
+    for(let c=0;c<=lastCol;c++){
+      const cell=xlsEnsureCell(ws,rr,c);
+      const style={font:xlsFont({}),alignment:{horizontal:c===2?"left":"center",vertical:"center"},border:xlsBorder()};
+      if(incomplete) style.fill={patternType:"solid",fgColor:{rgb:XLS_COL_INCOMPLETE_BG}};
+      else if(zebra) style.fill={patternType:"solid",fgColor:{rgb:XLS_COL_ZEBRA}};
+      if(c===0||c===5) style.numFmt="#,##0";
+      cell.s=style;
+    }
+  }
+  for(let c=0;c<=lastCol;c++){
+    const cell=xlsEnsureCell(ws,totalRow,c);
+    cell.s={font:xlsFont({bold:true}),fill:{patternType:"solid",fgColor:{rgb:XLS_COL_TOTAL_BG}},alignment:{horizontal:c===2?"left":"center",vertical:"center"},border:xlsBorder(),numFmt:c===5?"#,##0":undefined};
+  }
+  return ws;
+}
+
+function buildSynthesisWorkbook(){
+  const groups=computeArticleGroups();
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,buildSynthSheet(groups),"Synthèse");
+  XLSX.utils.book_append_sheet(wb,buildDetailSheet(groups),"Détail palettes");
+  return wb;
+}
+function exportSynthesisXlsx(){
+  if(typeof XLSX==="undefined"){toast("Module Excel non chargé — connexion Internet requise la 1re fois.");return;}
+  const d=new Date();
+  const name="Synthese_packing_liste_"+d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")+".xlsx";
+  XLSX.writeFile(buildSynthesisWorkbook(),name);
+  toast("Export synthèse généré.");
+}
+$("exportXlsx2").onclick=exportSynthesisXlsx;
 
 /* ===== SAUVEGARDE APP ===== */
 $("saveApp").onclick=()=>{
