@@ -1,6 +1,6 @@
 Attribute VB_Name = "Module1"
 ' ===========================================================================
-' PACKING LISTE — Macros VBA
+' PACKING LISTE — Macros VBA (version avec boutons)
 ' ===========================================================================
 ' Installation (une seule fois) :
 '   1. Ouvrez packing_liste.xlsx dans Excel.
@@ -14,9 +14,11 @@ Attribute VB_Name = "Module1"
 '      (Un .xlsx ne peut pas contenir de macros.)
 '   6. À l'ouverture, autorisez les macros si Excel le demande.
 '
-' Pour lancer la synthèse : Alt+F8, sélectionnez GenerateSynthese, Exécuter.
-' (Ou : Développeur > Insérer > Bouton, dessinez-le sur la feuille Synthese,
-' et affectez-lui la macro GenerateSynthese pour un simple clic.)
+' Utilisation :
+'   - Sur la feuille Scan, deux cellules stylées en haut à droite (colonnes
+'     I:J) servent de boutons : double-cliquez dessus pour lancer la macro.
+'     "NOUVEAU DÉCHARGEMENT" (rouge) et "GÉNÉRER LA SYNTHÈSE" (vert).
+'   - Sinon, à tout moment : Alt+F8, choisissez la macro, Exécuter.
 ' ===========================================================================
 
 
@@ -48,6 +50,17 @@ Attribute VB_Name = "Module1"
 '
 ' CleanUp:
 '     Application.EnableEvents = True
+' End Sub
+'
+' Private Sub Worksheet_BeforeDoubleClick(ByVal Target As Range, ByVal Cancel As Boolean)
+'     ' Boutons cliquables : double-clic sur I1:J2 ou I4:J5 lance la macro
+'     If Not Intersect(Target, Me.Range("I1:J2")) Is Nothing Then
+'         Cancel = True
+'         NouveauDechargement
+'     ElseIf Not Intersect(Target, Me.Range("I4:J5")) Is Nothing Then
+'         Cancel = True
+'         GenerateSynthese
+'     End If
 ' End Sub
 
 
@@ -180,8 +193,6 @@ Sub GenerateSynthese()
                 End If
             Next b
         Next a
-    Else
-        ReDim keysArr(1 To 0)
     End If
 
     WriteSynthSheet wsSynth, groups, keysArr, n
