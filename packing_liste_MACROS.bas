@@ -15,9 +15,11 @@ Attribute VB_Name = "Module1"
 '   6. À l'ouverture, autorisez les macros si Excel le demande.
 '
 ' Utilisation :
-'   - Sur la feuille Scan, deux cellules stylées en haut à droite (colonnes
-'     I:J) servent de boutons : double-cliquez dessus pour lancer la macro.
-'     "NOUVEAU DÉCHARGEMENT" (rouge) et "GÉNÉRER LA SYNTHÈSE" (vert).
+'   - La synthèse (feuilles Synthese et Detail_palettes) se met à jour
+'     TOUTE SEULE à chaque quantité validée en colonne G — rien à cliquer.
+'   - Sur la feuille Scan, la cellule rouge en haut à droite (I1:J2) est un
+'     bouton : double-cliquez dessus pour vider les palettes scannées et
+'     repartir sur un nouveau déchargement.
 '   - Sinon, à tout moment : Alt+F8, choisissez la macro, Exécuter.
 ' ===========================================================================
 
@@ -31,7 +33,8 @@ Attribute VB_Name = "Module1"
 '
 ' Private Sub Worksheet_Change(ByVal Target As Range)
 '     ' Scan en colonne A (ligne >= 5) -> curseur saute sur la Quantité (G)
-'     ' Quantité validée en G -> curseur redescend sur A, ligne suivante
+'     ' Quantité validée en G -> synthèse recalculée automatiquement (silencieux),
+'     ' puis curseur redescend sur A, ligne suivante
 '     On Error GoTo CleanUp
 '     If Target.Cells.Count > 1 Then Exit Sub
 '     If Target.Row < 5 Then Exit Sub
@@ -44,7 +47,11 @@ Attribute VB_Name = "Module1"
 '         End If
 '     ElseIf Target.Column = 7 Then                 ' colonne G : quantité
 '         If Target.Value <> "" Then
-'             Me.Cells(Target.Row + 1, "A").Select
+'             Dim nextCell As Range
+'             Set nextCell = Me.Cells(Target.Row + 1, "A")
+'             GenerateSynthese True     ' True = silencieux, pas de message
+'             Me.Activate
+'             nextCell.Select
 '         End If
 '     End If
 '
@@ -53,13 +60,10 @@ Attribute VB_Name = "Module1"
 ' End Sub
 '
 ' Private Sub Worksheet_BeforeDoubleClick(ByVal Target As Range, ByVal Cancel As Boolean)
-'     ' Boutons cliquables : double-clic sur I1:J2 ou I4:J5 lance la macro
+'     ' Bouton cliquable : double-clic sur I1:J2 lance la remise à zéro
 '     If Not Intersect(Target, Me.Range("I1:J2")) Is Nothing Then
 '         Cancel = True
 '         NouveauDechargement
-'     ElseIf Not Intersect(Target, Me.Range("I4:J5")) Is Nothing Then
-'         Cancel = True
-'         GenerateSynthese
 '     End If
 ' End Sub
 
@@ -70,7 +74,7 @@ Attribute VB_Name = "Module1"
 
 Option Explicit
 
-Sub GenerateSynthese()
+Sub GenerateSynthese(Optional silent As Boolean = False)
     ' Reconstruit les feuilles "Synthese" et "Detail_palettes" à partir des
     ' données de la feuille "Scan", selon les mêmes règles que l'export
     ' Excel de l'application web (voir Spec_export_synthese_palettes.md) :
@@ -200,7 +204,7 @@ Sub GenerateSynthese()
 
     Application.EnableEvents = True
     Application.ScreenUpdating = True
-    MsgBox "Synthèse mise à jour : " & n & " article(s).", vbInformation
+    If Not silent Then MsgBox "Synthèse mise à jour : " & n & " article(s).", vbInformation
 End Sub
 
 Private Function HexColor(ByVal rgbHex As String) As Long
