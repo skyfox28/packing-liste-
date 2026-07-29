@@ -59,7 +59,7 @@ Attribute VB_Name = "Module1"
 '     Application.EnableEvents = True
 ' End Sub
 '
-' Private Sub Worksheet_BeforeDoubleClick(ByVal Target As Range, ByVal Cancel As Boolean)
+' Private Sub Worksheet_BeforeDoubleClick(ByVal Target As Range, Cancel As Boolean)
 '     ' Bouton cliquable : double-clic sur I1:J2 lance la remise à zéro
 '     If Not Intersect(Target, Me.Range("I1:J2")) Is Nothing Then
 '         Cancel = True
