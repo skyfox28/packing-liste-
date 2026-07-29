@@ -109,10 +109,10 @@ Sub GenerateSynthese()
                 g("qty") = 0
                 Dim freq As Object
                 Set freq = CreateObject("Scripting.Dictionary")
-                g("freq") = freq
+                Set g("freq") = freq
                 Dim items As Collection
                 Set items = New Collection
-                g("items") = items
+                Set g("items") = items
                 groups.Add codeArt, g
             End If
             Set g = groups(codeArt)
