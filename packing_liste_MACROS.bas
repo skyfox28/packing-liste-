@@ -20,6 +20,10 @@ Attribute VB_Name = "Module1"
 '   - Sur la feuille Scan, la cellule rouge en haut à droite (I1:J2) est un
 '     bouton : double-cliquez dessus pour vider les palettes scannées et
 '     repartir sur un nouveau déchargement.
+'   - Colonne K de la feuille Scan : "Qté std/pal (réf.)", purement
+'     informative — reprend la quantité par palette de l'article (colonne D
+'     de la feuille Articles) pour comparaison visuelle avec la quantité
+'     réellement comptée en G. Formule seule, aucune macro n'y touche.
 '   - Sinon, à tout moment : Alt+F8, choisissez la macro, Exécuter.
 ' ===========================================================================
 

@@ -114,7 +114,7 @@
   .hint{font-size:12px;color:var(--ink-faint);margin-top:12px;line-height:1.5}
   .hint b{color:var(--ink-dim)}
 
-  .decoded{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:16px}
+  .decoded{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-top:16px}
   .decoded .cell{
     border:1px solid var(--glass-border);border-radius:11px;padding:10px 12px;
     background:var(--glass);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
@@ -269,6 +269,7 @@
           <div class="cell"><div class="k">GTIN</div><div class="v" id="pvGtin">—</div></div>
           <div class="cell"><div class="k">DLUO</div><div class="v" id="pvDate">—</div></div>
           <div class="cell"><div class="k">Lot</div><div class="v lot" id="pvLot">—</div></div>
+          <div class="cell"><div class="k">Qté / palette (réf.)</div><div class="v" id="pvQtePal">—</div></div>
         </div>
       </div>
 
@@ -341,7 +342,7 @@
       <div class="panel">
         <div class="tablewrap">
           <table>
-            <thead><tr><th>GTIN</th><th>Désignation</th><th>Code article</th><th></th></tr></thead>
+            <thead><tr><th>GTIN</th><th>Désignation</th><th>Code article</th><th>Qté/pal</th><th></th></tr></thead>
             <tbody id="artBody"></tbody>
           </table>
         </div>
@@ -359,16 +360,122 @@
 
 <script>
 let articles = [
-  {gtin:"05449000243195", des:"TEST — Coca-Cola 33cl (EAN-13)", code:"TEST001"},
-  {gtin:"13179142040244", des:"BTE150G FRUIT ASSORTX012-VA", code:"901601698"},
-  {gtin:"13179142040251", des:"BTE150G MACEDOINE X012-VA",   code:"901601699"},
-  {gtin:"13179142040299", des:"BTE100G LAMELLE ORANGX12-VA",  code:"901602259"},
-  {gtin:"13179142040305", des:"BTE150G BIGARREAUX X012-VA",   code:"901602260"},
-  {gtin:"03179143054458", des:"BLISTER COLORANTS LIQUIDES VAHINE Espagne Portugal", code:"804880"},
-  {gtin:"03179143054441", des:"BLISTER COLORANTS LIQUIDES VAHINE Belgique",         code:"802410"},
-  {gtin:"13179140633455", des:"BLISTER COLORANTS LIQUIDES VAHINE France",           code:"202330"},
-  {gtin:"00327592305246", des:"BLIS.COLORANT PATIS. GR x12-VAHINE",                 code:"M010153"},
-  {gtin:"13179142066589", des:"PAV 20S SUCRE VANILLEX11-VA",                        code:"901770216"},
+  {gtin:"05449000243195", des:"TEST — Coca-Cola 33cl (EAN-13)", code:"TEST001", qtePal:null},
+  {gtin:"13179142040244", des:"BTE150G FRUIT ASSORTX012-VA", code:"901601698", qtePal:null},
+  {gtin:"13179142040251", des:"BTE150G MACEDOINE X012-VA", code:"901601699", qtePal:null},
+  {gtin:"13179142040299", des:"BTE100G LAMELLE ORANGX12-VA", code:"901602259", qtePal:null},
+  {gtin:"13179142040305", des:"BTE150G BIGARREAUX X012-VA", code:"901602260", qtePal:null},
+  {gtin:"03179143054458", des:"BLISTER COLORANTS LIQUIDES VAHINE Espagne Portugal", code:"804880", qtePal:null},
+  {gtin:"03179143054441", des:"BLISTER COLORANTS LIQUIDES VAHINE Belgique", code:"802410", qtePal:null},
+  {gtin:"13179140633455", des:"BLISTER COLORANTS LIQUIDES VAHINE France", code:"202330", qtePal:null},
+  {gtin:"00327592305246", des:"BLIS.COLORANT PATIS. GR x12-VAHINE", code:"M010153", qtePal:null},
+  {gtin:"13179142066589", des:"PAV 20S SUCRE VANILLEX11-VA", code:"901770216", qtePal:null},
+  {gtin:"03179142784400", des:"BQ72 AR.FLEUR ORANG.ODEC-VA", code:"278440", qtePal:16},
+  {gtin:"03179142052806", des:"BQ 40UC PRALIN 100G     -VA", code:"901044411", qtePal:16},
+  {gtin:"13179142055552", des:"BQ48 SCH AMPDRE 125G STD-VA", code:"901368221", qtePal:16},
+  {gtin:"03179142055821", des:"BQ 36SCH AMAND EFFIL OD -VA", code:"901410799", qtePal:16},
+  {gtin:"03179142056279", des:"BQ 48UC AMAND POUDRE OD -VA", code:"901447316", qtePal:16},
+  {gtin:"13179142056771", des:"BOX100 LOT2 AMPDR 125G  -VA", code:"901506742", qtePal:4},
+  {gtin:"03179142056781", des:"BQ25 LOT2 AMPDRE 125G   -VA", code:"901506743", qtePal:16},
+  {gtin:"13179142057068", des:"MNBQ 24 AROM VANILLE OD-VA", code:"901533517", qtePal:40},
+  {gtin:"03179142057559", des:"MNBQ24 AR.FL.ORANGER OD -VA", code:"901538973", qtePal:40},
+  {gtin:"03179142059645", des:"BQ 48 COLORANTS LIQUIDE -VA", code:"901572075", qtePal:16},
+  {gtin:"03179143060060", des:"BQ40 PEPITCHOCLAIT PLS34-VA", code:"901582979", qtePal:16},
+  {gtin:"03179142030248", des:"BQ 48 SCH NOIX COCO 115G-VA", code:"901591476", qtePal:16},
+  {gtin:"13179142040466", des:"MNBQ30 LOT SV&LC 15SCH  -VA", code:"901603260", qtePal:40},
+  {gtin:"13179142040473", des:"MNBQ30 LOT SVM-LC 10SCH -VA", code:"901603261", qtePal:40},
+  {gtin:"13179142060297", des:"MNBQ30 LOT 10SVM PLS5OFF-VA", code:"901608292", qtePal:40},
+  {gtin:"03179142060382", des:"MNBOX88 SCHPEPIT CHOC OD-VA", code:"901610156", qtePal:6},
+  {gtin:"03179142070039", des:"MNBQ24SCH PEPITCHOCNR OD-VA", code:"901611255", qtePal:40},
+  {gtin:"03179142070053", des:"MNBQ20SCH PEPITCHOCLT OD-VA", code:"901611267", qtePal:40},
+  {gtin:"03179142070121", des:"BQ70 LOTS SVM&LC 10SCH  -VA", code:"901614305", qtePal:16},
+  {gtin:"03179142070138", des:"BQ70 LOTS SV&LC 15SCH   -VA", code:"901614306", qtePal:16},
+  {gtin:"03179142062027", des:"BOX 266UC PANACHE 15REF -VA", code:"901627390", qtePal:4},
+  {gtin:"03179142062256", des:"MNBOX120  LOTSVMLC 10SCH-VA", code:"901632122", qtePal:6},
+  {gtin:"03179142062287", des:"BOX180 SCH AM PDR EFF OD-VA", code:"901632395", qtePal:4},
+  {gtin:"03166296652228", des:"MNBOX 120 BTEMEN 4REF   -DU", code:"901635448", qtePal:6},
+  {gtin:"03166296656127", des:"MNBOX120BTMEN HDPTHYM 5B-DU", code:"901640490", qtePal:6},
+  {gtin:"03166296656134", des:"MNBOX120 BTMEN EPIC HERB-DU", code:"901640491", qtePal:6},
+  {gtin:"13179142063243", des:"MNBQ20 KITGALET PATROUIL-VA", code:"901678581", qtePal:40},
+  {gtin:"03179142063253", des:"BQ 50 KIT GALET PATROUIL-VA", code:"901678582", qtePal:16},
+  {gtin:"13179142063274", des:"MNBQ20KITGALET PLS34 PAT-VA", code:"901678585", qtePal:40},
+  {gtin:"03179142063284", des:"BQ50KITGALETTE PLS34 PAT-VA", code:"901678586", qtePal:16},
+  {gtin:"03166296459292", des:"MNBOX 72 CHOLULA HOT SCE-CA", code:"901729130", qtePal:6},
+  {gtin:"03166296459308", des:"MNBOX 72UC 3REF CHOLULA -CA", code:"901729131", qtePal:6},
+  {gtin:"03166296459346", des:"MNBOX 72UC 2REF FRANKS-FA", code:"901729894", qtePal:6},
+  {gtin:"03179142063369", des:"BOX 280 LOT PANACHE S&L -VA", code:"901729944", qtePal:4},
+  {gtin:"03179142063352", des:"BQ72 AROM VANIL 200ML OD-VA", code:"901729956", qtePal:16},
+  {gtin:"03179142063376", des:"MNBOX120 LOT10SVMPLS5OF-VA", code:"901730946", qtePal:6},
+  {gtin:"03166296553037", des:"MNBOX 120BM 3REF EPICES -DU", code:"901730997", qtePal:6},
+  {gtin:"03166296553174", des:"MNBOX 120BM 3REF HERBES -DU", code:"901734911", qtePal:6},
+  {gtin:"03179142064410", des:"MNBOX 140UC FERMENT 3REF-VA", code:"901737215", qtePal:6},
+  {gtin:"03166296653041", des:"MNBOX152UC 16REF 2024  -DU", code:"901737412", qtePal:6},
+  {gtin:"03179142064472", des:"BOX 176UC PEPITES 3 REF -VA", code:"901737487", qtePal:4},
+  {gtin:"03179142064489", des:"BOX 174UC PEPITE NR 4REF-VA", code:"901737488", qtePal:4},
+  {gtin:"03179142064502", des:"BOX 168UC PEPIT MIX 4REF-VA", code:"901738067", qtePal:4},
+  {gtin:"03179142065059", des:"BOX 128UC GOUTER FERMENT-VA", code:"901740507", qtePal:4},
+  {gtin:"03179142065080", des:"BOX204 SCHAMPDR 125G STD-VA", code:"901741616", qtePal:4},
+  {gtin:"03179142065097", des:"BQ36 SCH AM EFF 125G STD-VA", code:"901741617", qtePal:16},
+  {gtin:"03179142065103", des:"BQ48 SCH PEPIT CHOC NOIR-VA", code:"901741618", qtePal:16},
+  {gtin:"03179142065110", des:"BQ40 SCH PEPIT CHOC LAIT-VA", code:"901741619", qtePal:16},
+  {gtin:"03179142065127", des:"BQ40SCH PEPIT CHUNK3CHOC-VA", code:"901741620", qtePal:16},
+  {gtin:"03179142065134", des:"BOX204 SCH AMAND PDR MED-VA", code:"901741621", qtePal:4},
+  {gtin:"03179142065141", des:"BQ48 SCH AMAND PDR MED  -VA", code:"901741622", qtePal:16},
+  {gtin:"03179142065158", des:"BOX128 SCH CREPE MIX3EN1-VA", code:"901741623", qtePal:4},
+  {gtin:"03179142065165", des:"BOX192 SCH AMD PDR EFFIL-VA", code:"901741624", qtePal:4},
+  {gtin:"03179142065189", des:"BOX264UC VANILLE 3REFS  -VA", code:"901741626", qtePal:4},
+  {gtin:"03179142065196", des:"BQ54UC VANILLE 3 REFS   -VA", code:"901741627", qtePal:16},
+  {gtin:"03179142065202", des:"BOX258UC DECORS 9REFS   -VA", code:"901741628", qtePal:4},
+  {gtin:"03179142065219", des:"BQ96UC DECORS NOEL 3REFS-VA", code:"901741629", qtePal:16},
+  {gtin:"03179142065226", des:"BQ66UC PANACHE FDA 3REFS-VA", code:"901741630", qtePal:16},
+  {gtin:"03179142065233", des:"BQ48UC CRAYON PAT 2REFS -VA", code:"901741631", qtePal:16},
+  {gtin:"03179142065240", des:"BOX192UC AMAND MED EFFIL-VA", code:"901741632", qtePal:4},
+  {gtin:"03179142065257", des:"BOX196UC AIDES PAT 5REFS-VA", code:"901741633", qtePal:4},
+  {gtin:"03179142065264", des:"BOX 216UC AROMES 3REFS  -VA", code:"901741634", qtePal:4},
+  {gtin:"03166296653331", des:"MNBOX 140UC PANACH 12REF-DU", code:"901741705", qtePal:6},
+  {gtin:"03166296653355", des:"MNBOX138UC POIVRE HERBES-DU", code:"901741737", qtePal:6},
+  {gtin:"03179142065271", des:"BOX184UC VANIL GOUS MADA-VA", code:"901741739", qtePal:4},
+  {gtin:"03179142065486", des:"BOX262UC 12 REF 20-80 SM-VA", code:"901749858", qtePal:4},
+  {gtin:"03179142065493", des:"BOX 128UC GLACE VAN-CHOC-VA", code:"901749859", qtePal:4},
+  {gtin:"03166296656813", des:"MNBOX 48UC MOULIN SEL   -DU", code:"901754116", qtePal:6},
+  {gtin:"03166296656820", des:"MNBOX 152UC PANACH 12REF-DU", code:"901754167", qtePal:6},
+  {gtin:"03166296656837", des:"MNBOX 156UC PANACH 7 REF-DU", code:"901754168", qtePal:6},
+  {gtin:"03179142065653", des:"BOX 236UC VANILLE 7 REFS-VA", code:"901755413", qtePal:4},
+  {gtin:"03179142065660", des:"BQ 32UC 3EN1 3REFS      -VA", code:"901755414", qtePal:16},
+  {gtin:"03179142065677", des:"MNBOX 114UC VANILLE 5REF-VA", code:"901755415", qtePal:6},
+  {gtin:"03166296657797", des:"MNBOX150SCH CHOLULA 4REF-CA", code:"901757564", qtePal:6},
+  {gtin:"03179142065776", des:"BOX128UC SCH BANANA FLAN-VA", code:"901759361", qtePal:4},
+  {gtin:"03179142065783", des:"BOX128UC CREP CAK MOELLX-VA", code:"901759362", qtePal:4},
+  {gtin:"03179142065806", des:"BOX120UC AMAND PDRE 200G-VA", code:"901761018", qtePal:4},
+  {gtin:"03179142065813", des:"BOX128UC GENOISE COOKIES-VA", code:"901761019", qtePal:4},
+  {gtin:"03166296657926", des:"MNBOX 72UC TRUFFES 4REFS-DU", code:"901761020", qtePal:6},
+  {gtin:"03166296659890", des:"BOX 200UC BTEMEN 5REFS  -DU", code:"901770100", qtePal:4},
+  {gtin:"03166296659906", des:"MNBOX 138UC PANACH 5 REF-DU", code:"901770101", qtePal:6},
+  {gtin:"03166296659913", des:"MNBOX 129UC AIDCUL 3REFS-DU", code:"901770102", qtePal:6},
+  {gtin:"03179142066445", des:"BOX 160UC PEPITES 4REFS -VA", code:"901770103", qtePal:4},
+  {gtin:"03179142066766", des:"MNBOX76UC PEPIT OD  4REF-VA", code:"901771209", qtePal:6},
+  {gtin:"03179142066773", des:"MNBOX94UC AROM PPG SVM  -VA", code:"901771210", qtePal:6},
+  {gtin:"03166296660216", des:"BQ18UC GDUC HERBES 3REF -DU", code:"901771288", qtePal:16},
+  {gtin:"03166296660223", des:"BQ18UC GDUC POIVRES 3REF-DU", code:"901771289", qtePal:16},
+  {gtin:"03166296660230", des:"MNBOX 126UC AIDCUL 4REFS-DU", code:"901771290", qtePal:6},
+  {gtin:"03166296660254", des:"MNBOX 132UC AIDCUL 5REFS-DU", code:"901771293", qtePal:6},
+  {gtin:"03166296660261", des:"MNBOX 129UC AIDCUL 5REFS-DU", code:"901771294", qtePal:6},
+  {gtin:"03166296660278", des:"MNBOX 135UC AIDCUL 3REFS-DU", code:"901771295", qtePal:6},
+  {gtin:"03179142067589", des:"MNBOX102UC AROM SUC 4REF-VA", code:"901771296", qtePal:6},
+  {gtin:"03179142067541", des:"BOX254UC 12 REF 20-80 SM-VA", code:"901771438", qtePal:4},
+  {gtin:"03179142067602", des:"BOX 104UC 3EN1 3 REFS   -VA", code:"901771451", qtePal:4},
+  {gtin:"03179142067619", des:"BOX 104UC GOUTER 3 REFS -VA", code:"901771452", qtePal:4},
+  {gtin:"03179142067626", des:"MNBOX 56UC FLAN CREME   -VA", code:"901771453", qtePal:6},
+  {gtin:"03179142067633", des:"MNBOX 64UC PPG 3REFS    -VA", code:"901771454", qtePal:6},
+  {gtin:"03179142067749", des:"MNBOX90 UC EPIPHANIE    -VA", code:"901772385", qtePal:6},
+  {gtin:"03179142067688", des:"BOX194UC AIDPAT VAN 4REF-VA", code:"901772397", qtePal:4},
+  {gtin:"03179142067695", des:"BOX 216UC AROMES 4REFS  -VA", code:"901772398", qtePal:4},
+  {gtin:"03179142067701", des:"BOX258UC DECORS 8REFS   -VA", code:"901772399", qtePal:4},
+  {gtin:"03179142067718", des:"BQ44UC SCH PISTACHE 2REF-VA", code:"901772400", qtePal:16},
+  {gtin:"03179142067732", des:"BOX96UC SCH GENOISE     -VA", code:"901772402", qtePal:4},
+  {gtin:"03166296660643", des:"MNBOX168UC EPICES EDILIM-DU", code:"901772403", qtePal:6},
+  {gtin:"03166296660650", des:"MNBOX48UC MOUL SEL 4REF -DU", code:"901772404", qtePal:6},
+  {gtin:"03179142067763", des:"MNBOX97UC FSECS LOT SV  -VA", code:"901773172", qtePal:6},
 ]; /* END_ARTICLES */
 
 let scans = [];
@@ -393,7 +500,7 @@ function decode(raw){
   if(!out.gtin&&/^\d{6,14}$/.test(s)) out.gtin=s.padStart(14,"0");
   return out;
 }
-function lookup(gtin){const a=articles.find(x=>x.gtin===gtin);return a?{des:a.des,code:a.code}:{des:"GTIN inconnu",code:""};}
+function lookup(gtin){const a=articles.find(x=>x.gtin===gtin);return a?{des:a.des,code:a.code,qtePal:a.qtePal??null}:{des:"GTIN inconnu",code:"",qtePal:null};}
 
 /* ===== UTILITAIRES ===== */
 const $=id=>document.getElementById(id);
@@ -545,10 +652,15 @@ function renderArticles(){
       <td><input class="edit mono" value="${a.gtin}" data-f="gtin" data-i="${idx}"></td>
       <td><input class="edit" value="${(a.des||'').replace(/"/g,'&quot;')}" data-f="des" data-i="${idx}"></td>
       <td><input class="edit mono" value="${a.code||''}" data-f="code" data-i="${idx}"></td>
+      <td><input class="edit mono" value="${a.qtePal??''}" data-f="qtePal" data-i="${idx}" inputmode="numeric" style="width:70px"></td>
       <td><button class="btn ghost" data-delart="${idx}" style="padding:4px 10px">✕</button></td>`;
     ab.appendChild(tr);
   });
-  ab.querySelectorAll("input.edit").forEach(inp=>inp.onchange=()=>{articles[+inp.dataset.i][inp.dataset.f]=inp.value.trim();renderAll();});
+  ab.querySelectorAll("input.edit").forEach(inp=>inp.onchange=()=>{
+    const v=inp.value.trim();
+    articles[+inp.dataset.i][inp.dataset.f]=inp.dataset.f==="qtePal"?(v===""?null:+v):v;
+    renderAll();
+  });
   ab.querySelectorAll("[data-delart]").forEach(b=>b.onclick=()=>{articles.splice(+b.dataset.delart,1);renderAll();});
 }
 
@@ -572,6 +684,7 @@ function updatePreview(){
   $("pvGtin").textContent=d.gtin||"—";
   $("pvDate").textContent=d.dluo||"—";
   $("pvLot").textContent=d.lot||"—";
+  $("pvQtePal").textContent=info.qtePal??"—";
 }
 function addScan(){
   const raw=$("scan").value.trim();
@@ -605,13 +718,13 @@ document.querySelectorAll("nav.sidenav button").forEach(btn=>btn.onclick=()=>{
   btn.classList.add("active");$("tab-"+btn.dataset.tab).classList.add("active");
   if(btn.dataset.tab==="scan")$("scan").focus();
 });
-$("addArt").onclick=()=>{articles.push({gtin:"",des:"",code:""});renderArticles();};
+$("addArt").onclick=()=>{articles.push({gtin:"",des:"",code:"",qtePal:null});renderArticles();};
 
 /* ===== EXPORTS CSV ===== */
 function toCSV(rows){return rows.map(r=>r.map(c=>{const s=String(c??"");return /[",;\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}).join(";")).join("\r\n");}
 function download(name,text,type){const blob=new Blob([type?text:"﻿"+text],{type:type||"text/csv;charset=utf-8"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=name;a.click();URL.revokeObjectURL(url);}
 $("exportScan").onclick=()=>{const rows=[["N° scan","Code","Désignation","GTIN","DLUO","Lot","Quantité"]];applyFilters(scans).forEach(r=>rows.push([r.seq,r.code,r.des,r.gtin,r.dluo,r.lot,r.qty??""]));download("packing_detail.csv",toCSV(rows));};
-$("exportArt").onclick=()=>{const rows=[["GTIN","Désignation","Code article"]];articles.forEach(a=>rows.push([a.gtin,a.des,a.code]));download("packing_articles.csv",toCSV(rows));};
+$("exportArt").onclick=()=>{const rows=[["GTIN","Désignation","Code article","Qté/pal"]];articles.forEach(a=>rows.push([a.gtin,a.des,a.code,a.qtePal??""]));download("packing_articles.csv",toCSV(rows));};
 
 function buildTreeRows(){
   const out=[];
@@ -675,10 +788,10 @@ function buildWorkbook(){
   ws3["!autofilter"]={ref:"A1:F"+(d3.length)};
   XLSX.utils.book_append_sheet(wb,ws3,"Détail par lot");
 
-  const d4=[["GTIN","Désignation","Code article"]];
-  articles.forEach(a=>d4.push([a.gtin,a.des,a.code]));
+  const d4=[["GTIN","Désignation","Code article","Qté/pal"]];
+  articles.forEach(a=>d4.push([a.gtin,a.des,a.code,a.qtePal??""]));
   const ws4=XLSX.utils.aoa_to_sheet(d4);
-  ws4["!cols"]=[{wch:16},{wch:32},{wch:14}];
+  ws4["!cols"]=[{wch:16},{wch:32},{wch:14},{wch:9}];
   XLSX.utils.book_append_sheet(wb,ws4,"Articles");
   return wb;
 }
