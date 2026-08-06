@@ -50,6 +50,11 @@
     padding:10px 12px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;text-align:left;transition:.15s;
   }
   nav.sidenav button .icon{font-size:17px;width:20px;text-align:center}
+  nav.sidenav button .icon.flag-pl{
+    display:inline-block;width:18px;height:13px;border-radius:2px;overflow:hidden;
+    background:linear-gradient(to bottom, #fff 50%, #dc143c 50%);
+    border:1px solid rgba(255,255,255,.3);flex:0 0 auto;
+  }
   nav.sidenav button:hover{background:rgba(255,255,255,.04);color:var(--ink)}
   nav.sidenav button.active{background:rgba(63,214,196,.13);color:var(--teal)}
   .side-stats{margin-top:auto;display:flex;flex-direction:column;gap:8px;padding:0 8px}
@@ -228,7 +233,7 @@
     </div>
     <nav class="sidenav">
       <button class="active" data-tab="scan"><span class="icon">📦</span><span class="lbl">Scan</span></button>
-      <button data-tab="pl"><span class="icon">🇵🇱</span><span class="lbl">Pologne</span></button>
+      <button data-tab="pl"><span class="icon flag-pl" aria-label="Pologne"></span><span class="lbl">Pologne</span></button>
       <button data-tab="synth"><span class="icon">📊</span><span class="lbl">Synthèse</span></button>
       <button data-tab="art"><span class="icon">🏷️</span><span class="lbl">Articles</span></button>
     </nav>
