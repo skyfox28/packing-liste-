@@ -228,6 +228,7 @@
     </div>
     <nav class="sidenav">
       <button class="active" data-tab="scan"><span class="icon">📦</span><span class="lbl">Scan</span></button>
+      <button data-tab="pl"><span class="icon">🇵🇱</span><span class="lbl">Pologne</span></button>
       <button data-tab="synth"><span class="icon">📊</span><span class="lbl">Synthèse</span></button>
       <button data-tab="art"><span class="icon">🏷️</span><span class="lbl">Articles</span></button>
     </nav>
@@ -301,6 +302,70 @@
       </div>
     </section>
 
+    <!-- POLOGNE -->
+    <section class="view" id="tab-pl">
+      <header class="pagehead">
+        <h2>Pologne — scan GTIN + UM</h2>
+        <p>Deux scans successifs par palette : code produit (GTIN), puis unité de manutention (UM).</p>
+      </header>
+      <div class="panel">
+        <div class="scanrow">
+          <div class="field grow">
+            <label for="plGtin">GTIN produit</label>
+            <input id="plGtin" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Scannez le code produit…">
+          </div>
+          <div class="field grow">
+            <label for="plUm">UM (unité de manutention)</label>
+            <input id="plUm" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Ex. 1353551535">
+          </div>
+          <div class="field">
+            <label for="plQty">Quantité</label>
+            <div class="stepper">
+              <button type="button" id="plQtyMinus" aria-label="Diminuer la quantité">−</button>
+              <input id="plQty" type="number" min="0" step="1" inputmode="numeric" placeholder="0">
+              <button type="button" id="plQtyPlus" aria-label="Augmenter la quantité">+</button>
+            </div>
+          </div>
+          <button class="btn-add" id="plAddBtn">Ajouter la palette</button>
+        </div>
+        <div class="hint">Scannez d'abord le <b>GTIN</b> (Entrée → passe sur UM), puis l'<b>UM</b> (Entrée → passe sur Quantité), puis validez. Cliquez sur une quantité dans la liste pour la modifier.</div>
+        <div class="decoded" id="previewPL" style="display:none">
+          <div class="cell accent"><div class="k">Code article</div><div class="v" id="pvCodePL">—</div></div>
+          <div class="cell"><div class="k">Désignation</div><div class="v" id="pvDesPL">—</div></div>
+          <div class="cell"><div class="k">GTIN</div><div class="v" id="pvGtinPL">—</div></div>
+          <div class="cell"><div class="k">UM</div><div class="v" id="pvUmPL">—</div></div>
+          <div class="cell"><div class="k">Qté / UM (réf.)</div><div class="v" id="pvQtePalPL">—</div></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="section-label">
+          <span>Pologne — palettes scannées (GTIN + UM)</span>
+          <span class="filtag" id="plStats"></span>
+          <span class="filtag" id="filtCountPL" style="display:none"></span>
+        </div>
+        <div class="filterbar">
+          <div class="searchpill">
+            <span class="ic">🔍</span>
+            <input type="text" id="fSearchPL" placeholder="Rechercher UM, code, désignation…">
+          </div>
+          <select id="fArticlePL"><option value="">Tous les articles</option></select>
+          <button class="btn ghost" id="fResetPL">✕ Réinitialiser</button>
+        </div>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>N°</th><th>Code</th><th>Désignation</th><th>UM</th><th class="num">Qté</th><th></th></tr></thead>
+            <tbody id="scanBodyPL"></tbody>
+          </table>
+        </div>
+        <div class="btnbar">
+          <button class="btn save" id="exportXlsxPL">Exporter en Excel</button>
+          <button class="btn ghost" id="exportScanPL">Détail CSV</button>
+          <button class="btn warn" id="clearScanPL">Tout effacer</button>
+        </div>
+      </div>
+    </section>
+
     <!-- SYNTHESE -->
     <section class="view" id="tab-synth">
       <header class="pagehead">
@@ -330,6 +395,32 @@
       <div class="btnbar">
         <button class="btn save" id="exportXlsx2">Exporter la synthèse (Excel)</button>
         <button class="btn ghost" id="exportSynth">Synthèse CSV</button>
+      </div>
+
+      <div class="section-label" style="margin-top:26px">Synthèse Pologne — récap UM</div>
+      <div class="grid2">
+        <div class="panel">
+          <div class="section-label">Récapitulatif par article (Pologne)</div>
+          <div class="tablewrap">
+            <table>
+              <thead><tr><th>Code</th><th>Désignation</th><th class="num">UM</th><th class="num">Quantité</th></tr></thead>
+              <tbody id="prodBodyPL"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="section-label">Détail par UM — article › UM</div>
+          <div class="tablewrap">
+            <table>
+              <thead><tr><th>Article · UM</th><th></th><th class="num">UM</th><th class="num">Quantité</th></tr></thead>
+              <tbody id="treeBodyPL"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="btnbar">
+        <button class="btn save" id="exportXlsxPL2">Exporter la synthèse Pologne (Excel)</button>
+        <button class="btn ghost" id="exportSynthPL">Synthèse Pologne CSV</button>
       </div>
     </section>
 
@@ -480,6 +571,8 @@ let articles = [
 
 let scans = [];
 let seqCounter = 0;
+let scansPL = [];
+let seqCounterPL = 0;
 
 /* ===== DÉCODAGE GS1-128 ===== */
 function decode(raw){
@@ -643,6 +736,126 @@ function renderTree(){
   tb.appendChild(tr);
 }
 
+/* ===== POLOGNE (GTIN + UM) ===== */
+let filterArticlePL="", filterSearchPL="";
+
+function refreshCountersPL(){
+  const el=$("plStats");
+  if(!el) return;
+  el.textContent=scansPL.length+" UM · "+scansPL.reduce((s,r)=>s+(+r.qty||0),0)+" unités";
+}
+
+function rebuildFiltersPL(){
+  const artSel=$("fArticlePL");
+  const prevArt=artSel.value;
+  artSel.innerHTML=`<option value="">Tous les articles</option>`;
+  const arts=new Map();
+  scansPL.forEach(r=>{if(!arts.has(r.gtin))arts.set(r.gtin,r.code+" — "+r.des);});
+  arts.forEach((label,gtin)=>{const o=document.createElement("option");o.value=gtin;o.textContent=label;artSel.appendChild(o);});
+  artSel.value=arts.has(prevArt)?prevArt:"";
+  filterArticlePL=artSel.value;
+}
+
+function applyFiltersPL(list){
+  let out=list;
+  if(filterArticlePL) out=out.filter(r=>r.gtin===filterArticlePL);
+  if(filterSearchPL){
+    const q=filterSearchPL.toLowerCase();
+    out=out.filter(r=>(r.code||"").toLowerCase().includes(q)||(r.des||"").toLowerCase().includes(q)||(r.um||"").toLowerCase().includes(q));
+  }
+  return out;
+}
+
+function renderScanTablePL(){
+  rebuildFiltersPL();
+  const filtered=applyFiltersPL(scansPL);
+  const fc=$("filtCountPL");
+  const isFiltered=filterArticlePL||filterSearchPL;
+  if(isFiltered&&scansPL.length){fc.style.display="inline";fc.textContent=filtered.length+" / "+scansPL.length+" UM";}
+  else fc.style.display="none";
+
+  const tb=$("scanBodyPL");tb.innerHTML="";
+  if(filtered.length===0){
+    tb.innerHTML=`<tr><td colspan="6" class="empty">${scansPL.length===0?"Aucune UM scannée pour l'instant.":"Aucun résultat pour les filtres actifs."}</td></tr>`;
+    refreshCountersPL();return;
+  }
+  filtered.forEach(r=>{
+    const idx=scansPL.indexOf(r);
+    const unknown=r.des==="GTIN inconnu";
+    const tr=document.createElement("tr");
+    tr.setAttribute("data-seq",r.seq);
+    tr.innerHTML=`
+      <td class="seq">${r.seq}</td>
+      <td class="code">${r.code||"—"}</td>
+      <td>${r.des}${unknown?' <span class="pill bad">inconnu</span>':''}</td>
+      <td class="lot">${r.um||"—"}</td>
+      <td class="num qty-cell" title="Cliquer pour modifier" data-idx="${idx}">${r.qty??""}</td>
+      <td><button class="btn ghost" data-del="${idx}" style="padding:4px 10px">✕</button></td>`;
+    tb.appendChild(tr);
+  });
+  tb.querySelectorAll(".qty-cell").forEach(cell=>{
+    cell.onclick=()=>{
+      if(cell.querySelector("input")) return;
+      const idx=+cell.dataset.idx, cur=scansPL[idx].qty??"";
+      const inp=document.createElement("input");
+      inp.type="number";inp.className="qty-input";inp.value=cur;inp.min=0;
+      cell.textContent="";cell.appendChild(inp);inp.focus();inp.select();
+      function commit(){const v=inp.value===""?null:(+inp.value);scansPL[idx].qty=v;renderAll();}
+      inp.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();commit();}if(e.key==="Escape"){renderAll();}});
+      inp.addEventListener("blur",commit);
+    };
+  });
+  tb.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{scansPL.splice(+b.dataset.del,1);renderAll();});
+  refreshCountersPL();
+}
+
+function renderProdPL(){
+  const pb=$("prodBodyPL");pb.innerHTML="";
+  const byG={};
+  scansPL.forEach(r=>{const g=r.gtin||"(vide)";byG[g]=byG[g]||{count:0,qty:0,des:r.des,code:r.code};byG[g].count++;byG[g].qty+=(+r.qty||0);});
+  let tCount=0,tQty=0; const rows=[]; const seen=new Set();
+  articles.forEach(a=>{const d=byG[a.gtin];rows.push({code:a.code,des:a.des,count:d?d.count:0,qty:d?d.qty:0});seen.add(a.gtin);});
+  Object.keys(byG).forEach(g=>{if(!seen.has(g))rows.push({code:byG[g].code,des:byG[g].des,count:byG[g].count,qty:byG[g].qty});});
+  if(rows.length===0){pb.innerHTML=`<tr><td colspan="4" class="empty">Rien à afficher — scannez des UM.</td></tr>`;return;}
+  rows.forEach(r=>{tCount+=r.count;tQty+=r.qty;
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td class="code">${r.code||"—"}</td><td>${r.des}</td><td class="num">${r.count}</td><td class="num">${r.qty}</td>`;
+    pb.appendChild(tr);});
+  const tr=document.createElement("tr");tr.className="totrow";
+  tr.innerHTML=`<td>TOTAL</td><td></td><td class="num">${tCount}</td><td class="num">${tQty}</td>`;
+  pb.appendChild(tr);
+}
+
+function renderTreePL(){
+  const tb=$("treeBodyPL");tb.innerHTML="";
+  if(scansPL.length===0){tb.innerHTML=`<tr><td colspan="4" class="empty">Rien à afficher — scannez des UM.</td></tr>`;return;}
+  const byG={};
+  scansPL.forEach(r=>{const g=r.gtin||"(vide)";(byG[g]=byG[g]||[]).push(r);});
+  const known=articles.map(a=>a.gtin).filter(g=>byG[g]);
+  const unknown=Object.keys(byG).filter(g=>!articles.find(a=>a.gtin===g));
+  let gCount=0,gQty=0;
+  [...known,...unknown].forEach(g=>{
+    const list=byG[g],info=lookup(g);
+    const artCount=list.length,artQty=list.reduce((s,r)=>s+(+r.qty||0),0);
+    gCount+=artCount;gQty+=artQty;
+    const ar=document.createElement("tr");ar.className="lvl-art";
+    ar.innerHTML=`<td colspan="2"><div class="artname">
+      <span class="chip">${info.code||"—"}</span><span>${info.des}</span>
+      <span class="meta">${artCount} UM · ${artQty} u.</span></div></td>
+      <td class="num">${artCount}</td><td class="num">${artQty}</td>`;
+    tb.appendChild(ar);
+    list.slice().sort((a,b)=>a.seq-b.seq).forEach(p=>{
+      const pr=document.createElement("tr");pr.className="lvl-pal";
+      pr.innerHTML=`<td class="palcell">UM ${p.um||"—"} · scan n°${p.seq}</td>
+        <td></td><td class="num">1</td><td class="num">${p.qty??""}</td>`;
+      tb.appendChild(pr);
+    });
+  });
+  const tr=document.createElement("tr");tr.className="totrow";
+  tr.innerHTML=`<td>TOTAL</td><td></td><td class="num">${gCount}</td><td class="num">${gQty}</td>`;
+  tb.appendChild(tr);
+}
+
 /* ===== ARTICLES ===== */
 function renderArticles(){
   const ab=$("artBody");ab.innerHTML="";
@@ -664,13 +877,16 @@ function renderArticles(){
   ab.querySelectorAll("[data-delart]").forEach(b=>b.onclick=()=>{articles.splice(+b.dataset.delart,1);renderAll();});
 }
 
-function renderAll(){renderScanTable();renderProd();renderTree();renderArticles();}
+function renderAll(){renderScanTable();renderProd();renderTree();renderArticles();renderScanTablePL();renderProdPL();renderTreePL();}
 
 /* ===== ÉVÉNEMENTS FILTRES ===== */
 $("fArticle").onchange=e=>{filterArticle=e.target.value;renderScanTable();};
 $("fLot").onchange=e=>{filterLot=e.target.value;renderScanTable();};
 $("fSearch").oninput=e=>{filterSearch=e.target.value.trim();renderScanTable();};
 $("fReset").onclick=()=>{filterArticle="";filterLot="";filterSearch="";$("fSearch").value="";$("fArticle").value="";$("fLot").value="";renderScanTable();};
+$("fArticlePL").onchange=e=>{filterArticlePL=e.target.value;renderScanTablePL();};
+$("fSearchPL").oninput=e=>{filterSearchPL=e.target.value.trim();renderScanTablePL();};
+$("fResetPL").onclick=()=>{filterArticlePL="";filterSearchPL="";$("fSearchPL").value="";$("fArticlePL").value="";renderScanTablePL();};
 
 /* ===== PREVIEW + AJOUT ===== */
 function updatePreview(){
@@ -712,11 +928,53 @@ function bumpQty(delta){
 $("qtyMinus").onclick=()=>bumpQty(-1);
 $("qtyPlus").onclick=()=>bumpQty(1);
 
+/* ===== POLOGNE — PREVIEW + AJOUT (GTIN puis UM) ===== */
+function updatePreviewPL(){
+  const rawG=$("plGtin").value.trim(), rawU=$("plUm").value.trim(), pv=$("previewPL");
+  if(!rawG&&!rawU){pv.style.display="none";return;}
+  const d=decode(rawG),info=lookup(d.gtin);
+  pv.style.display="grid";
+  $("pvCodePL").textContent=info.code||"—";
+  $("pvDesPL").textContent=info.des;
+  $("pvDesPL").parentElement.classList.toggle("bad",info.des==="GTIN inconnu");
+  $("pvGtinPL").textContent=d.gtin||"—";
+  $("pvUmPL").textContent=rawU||"—";
+  $("pvQtePalPL").textContent=info.qtePal??"—";
+}
+function addScanPL(){
+  const rawG=$("plGtin").value.trim();
+  if(!rawG){$("plGtin").focus();return;}
+  const um=$("plUm").value.trim();
+  const d=decode(rawG),info=lookup(d.gtin);
+  const qty=$("plQty").value===""?null:(+$("plQty").value);
+  seqCounterPL++;
+  scansPL.push({seq:seqCounterPL,gtin:d.gtin,des:info.des,code:info.code,um,qty});
+  $("plGtin").value="";$("plUm").value="";$("plQty").value="";$("previewPL").style.display="none";
+  renderAll();$("plGtin").focus();
+  const rows=$("scanBodyPL").querySelectorAll("tr");
+  if(rows.length){const last=rows[rows.length-1];last.classList.add("flash");}
+}
+$("plGtin").addEventListener("input",updatePreviewPL);
+$("plGtin").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();if($("plGtin").value.trim()){$("plUm").focus();$("plUm").select();}}});
+$("plUm").addEventListener("input",updatePreviewPL);
+$("plUm").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();if($("plUm").value.trim()){$("plQty").focus();$("plQty").select();}}});
+$("plQty").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addScanPL();}});
+$("plAddBtn").onclick=addScanPL;
+
+function bumpQtyPL(delta){
+  const cur=$("plQty").value===""?0:(+$("plQty").value);
+  const next=Math.max(0,cur+delta);
+  $("plQty").value=next;
+}
+$("plQtyMinus").onclick=()=>bumpQtyPL(-1);
+$("plQtyPlus").onclick=()=>bumpQtyPL(1);
+
 document.querySelectorAll("nav.sidenav button").forEach(btn=>btn.onclick=()=>{
   document.querySelectorAll("nav.sidenav button").forEach(b=>b.classList.remove("active"));
   document.querySelectorAll("section.view").forEach(s=>s.classList.remove("active"));
   btn.classList.add("active");$("tab-"+btn.dataset.tab).classList.add("active");
   if(btn.dataset.tab==="scan")$("scan").focus();
+  if(btn.dataset.tab==="pl")$("plGtin").focus();
 });
 $("addArt").onclick=()=>{articles.push({gtin:"",des:"",code:"",qtePal:null});renderArticles();};
 
@@ -725,6 +983,7 @@ function toCSV(rows){return rows.map(r=>r.map(c=>{const s=String(c??"");return /
 function download(name,text,type){const blob=new Blob([type?text:"﻿"+text],{type:type||"text/csv;charset=utf-8"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=name;a.click();URL.revokeObjectURL(url);}
 $("exportScan").onclick=()=>{const rows=[["N° scan","Code","Désignation","GTIN","DLUO","Lot","Quantité"]];applyFilters(scans).forEach(r=>rows.push([r.seq,r.code,r.des,r.gtin,r.dluo,r.lot,r.qty??""]));download("packing_detail.csv",toCSV(rows));};
 $("exportArt").onclick=()=>{const rows=[["GTIN","Désignation","Code article","Qté/pal"]];articles.forEach(a=>rows.push([a.gtin,a.des,a.code,a.qtePal??""]));download("packing_articles.csv",toCSV(rows));};
+$("exportScanPL").onclick=()=>{const rows=[["N° scan","Code","Désignation","GTIN","UM","Quantité"]];applyFiltersPL(scansPL).forEach(r=>rows.push([r.seq,r.code,r.des,r.gtin,r.um,r.qty??""]));download("packing_pologne_detail.csv",toCSV(rows));};
 
 function buildTreeRows(){
   const out=[];
@@ -750,6 +1009,27 @@ $("exportSynth").onclick=()=>{
   rows.push([]);rows.push(["=== HIÉRARCHIQUE : article > lot > palette ==="],["Niveau","Code / Lot / Palette","Désignation / DLUO","Palettes","Quantité"]);
   buildTreeRows().forEach(t=>rows.push(t));
   download("packing_synthese.csv",toCSV(rows));
+};
+
+function buildTreeRowsPL(){
+  const out=[];
+  const byG={};scansPL.forEach(r=>{(byG[r.gtin||"(vide)"]=byG[r.gtin||"(vide)"]||[]).push(r);});
+  const order=[...articles.map(a=>a.gtin).filter(g=>byG[g]),...Object.keys(byG).filter(g=>!articles.find(a=>a.gtin===g))];
+  order.forEach(g=>{
+    const list=byG[g],info=lookup(g);
+    out.push(["Article",info.code,info.des,list.length,list.reduce((s,r)=>s+(+r.qty||0),0)]);
+    list.slice().sort((a,b)=>a.seq-b.seq).forEach(p=>out.push(["  UM",p.um||"","scan n°"+p.seq,1,p.qty??""]));
+  });
+  return out;
+}
+$("exportSynthPL").onclick=()=>{
+  const rows=[["=== PAR ARTICLE (POLOGNE) ==="],["Code","Désignation","UM","Quantité"]];
+  const byG={};scansPL.forEach(r=>{const g=r.gtin||"(vide)";byG[g]=byG[g]||{count:0,qty:0,des:r.des,code:r.code};byG[g].count++;byG[g].qty+=(+r.qty||0);});
+  articles.forEach(a=>{const d=byG[a.gtin];rows.push([a.code,a.des,d?d.count:0,d?d.qty:0]);});
+  Object.keys(byG).forEach(g=>{if(!articles.find(a=>a.gtin===g))rows.push([byG[g].code,byG[g].des,byG[g].count,byG[g].qty]);});
+  rows.push([]);rows.push(["=== DÉTAIL : article > UM ==="],["Niveau","Code / UM","Désignation / scan","UM","Quantité"]);
+  buildTreeRowsPL().forEach(t=>rows.push(t));
+  download("packing_pologne_synthese.csv",toCSV(rows));
 };
 
 /* ===== EXPORT EXCEL (.xlsx) avec AutoFilter — 4 feuilles brutes ===== */
@@ -801,6 +1081,41 @@ function exportXlsx(){
   toast("Export Excel généré.");
 }
 $("exportXlsx").onclick=exportXlsx;
+
+/* ===== EXPORT EXCEL POLOGNE (.xlsx) avec AutoFilter — 3 feuilles brutes ===== */
+function buildWorkbookPL(){
+  const wb=XLSX.utils.book_new();
+
+  const d1=[["N° scan","Code article","Désignation","GTIN","UM","Quantité"]];
+  scansPL.forEach(r=>d1.push([r.seq,r.code,r.des,r.gtin,r.um,r.qty??""]));
+  const ws1=XLSX.utils.aoa_to_sheet(d1);
+  ws1["!cols"]=[{wch:8},{wch:12},{wch:32},{wch:16},{wch:16},{wch:10}];
+  ws1["!autofilter"]={ref:"A1:F"+(d1.length)};
+  XLSX.utils.book_append_sheet(wb,ws1,"PL Ordre de scan");
+
+  const byG={};scansPL.forEach(r=>{const g=r.gtin||"(vide)";byG[g]=byG[g]||{count:0,qty:0,des:r.des,code:r.code};byG[g].count++;byG[g].qty+=(+r.qty||0);});
+  const d2=[["Code article","Désignation","UM","Quantité"]];let tc=0,tq=0;
+  articles.forEach(a=>{const d=byG[a.gtin];const count=d?d.count:0,q=d?d.qty:0;tc+=count;tq+=q;d2.push([a.code,a.des,count,q]);});
+  Object.keys(byG).forEach(g=>{if(!articles.find(a=>a.gtin===g)){tc+=byG[g].count;tq+=byG[g].qty;d2.push([byG[g].code,byG[g].des,byG[g].count,byG[g].qty]);}});
+  d2.push(["TOTAL","",tc,tq]);
+  const ws2=XLSX.utils.aoa_to_sheet(d2);
+  ws2["!cols"]=[{wch:12},{wch:32},{wch:10},{wch:10}];
+  ws2["!autofilter"]={ref:"A1:D"+(d2.length)};
+  XLSX.utils.book_append_sheet(wb,ws2,"PL Par article");
+
+  const d3=[["GTIN","Désignation","Code article","Qté/pal"]];
+  articles.forEach(a=>d3.push([a.gtin,a.des,a.code,a.qtePal??""]));
+  const ws3=XLSX.utils.aoa_to_sheet(d3);
+  ws3["!cols"]=[{wch:16},{wch:32},{wch:14},{wch:9}];
+  XLSX.utils.book_append_sheet(wb,ws3,"Articles");
+  return wb;
+}
+function exportXlsxPL(){
+  if(typeof XLSX==="undefined"){toast("Module Excel non chargé — connexion Internet requise la 1re fois.");return;}
+  XLSX.writeFile(buildWorkbookPL(),"packing_liste_pologne_"+new Date().toISOString().slice(0,10)+".xlsx");
+  toast("Export Excel Pologne généré.");
+}
+$("exportXlsxPL").onclick=exportXlsxPL;
 
 /* ===== EXPORT EXCEL — SYNTHÈSE PACKING LISTE (cahier des charges) =====
    2 onglets mis en forme : "Synthèse" (1 ligne / article) et "Détail
@@ -1006,6 +1321,175 @@ function exportSynthesisXlsx(){
 }
 $("exportXlsx2").onclick=exportSynthesisXlsx;
 
+/* ===== EXPORT EXCEL — SYNTHÈSE POLOGNE (même charte, groupé par UM) ===== */
+// QteStd = quantité la plus fréquente (mode) parmi les UM d'un même code article.
+function computeArticleGroupsPL(){
+  const byCode={};
+  scansPL.forEach(r=>{if(!r.code) return; (byCode[r.code]=byCode[r.code]||[]).push(r);});
+  const groups=Object.keys(byCode).map(code=>{
+    const list=byCode[code];
+    const freq={};
+    list.forEach(r=>{const q=r.qty??0; freq[q]=(freq[q]||0)+1;});
+    let qteStd=0,bestCount=-1;
+    Object.keys(freq).forEach(qStr=>{
+      const q=+qStr,c=freq[qStr];
+      if(c>bestCount||(c===bestCount&&q>qteStd)){qteStd=q;bestCount=c;}
+    });
+    const count=list.length, qty=list.reduce((s,r)=>s+(+r.qty||0),0);
+    return {code, des:list[0].des, qteStd, count, qty, list};
+  });
+  groups.sort((a,b)=>b.qty-a.qty); // quantité totale décroissante
+  return groups;
+}
+
+function buildSynthSheetPL(groups){
+  const ws={};
+  const lastCol=4; // A..E
+  xlsSetCell(ws,0,0,"SYNTHÈSE PACKING LISTE — POLOGNE — "+xlsFmtDate(new Date()));
+  const totalCount=groups.reduce((s,g)=>s+g.count,0), totalQty=groups.reduce((s,g)=>s+g.qty,0);
+  xlsSetCell(ws,1,0,"Total : "+totalCount+" UM  •  "+totalQty+" unités");
+  ["Code article","Désignation","Qté / UM","UM","Quantité totale"].forEach((h,c)=>xlsSetCell(ws,3,c,h));
+  groups.forEach((g,i)=>{
+    const r=4+i;
+    xlsSetCell(ws,r,0,g.code);
+    xlsSetCell(ws,r,1,g.des);
+    xlsSetCell(ws,r,2,g.qteStd,true);
+    xlsSetCell(ws,r,3,g.count,true);
+    xlsSetCell(ws,r,4,g.qty,true);
+  });
+  const totalRow=4+groups.length;
+  xlsSetCell(ws,totalRow,0,"TOTAL");
+  xlsEnsureCell(ws,totalRow,1);xlsEnsureCell(ws,totalRow,2);
+  if(groups.length>0){
+    const first=5, last=4+groups.length; // lignes Excel 1-indexées
+    ws[XLSX.utils.encode_cell({r:totalRow,c:3})]={t:"n",v:totalCount,f:"SUM(D"+first+":D"+last+")"};
+    ws[XLSX.utils.encode_cell({r:totalRow,c:4})]={t:"n",v:totalQty,f:"SUM(E"+first+":E"+last+")"};
+  }else{
+    xlsSetCell(ws,totalRow,3,0,true);
+    xlsSetCell(ws,totalRow,4,0,true);
+  }
+
+  ws["!ref"]=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:totalRow,c:lastCol}});
+  ws["!merges"]=[{s:{r:0,c:0},e:{r:0,c:lastCol}},{s:{r:1,c:0},e:{r:1,c:lastCol}}];
+  ws["!cols"]=[{wch:14},{wch:34},{wch:14},{wch:12},{wch:16}];
+  ws["!freeze"]={xSplit:0,ySplit:4,topLeftCell:"A5",activePane:"bottomLeft",state:"frozen"};
+
+  xlsStyleRange(ws,0,0,0,lastCol,{font:xlsFont({bold:true,sz:13,color:{rgb:XLS_COL_TITLE_FG}}),fill:{patternType:"solid",fgColor:{rgb:XLS_COL_TITLE_BG}},alignment:{horizontal:"center",vertical:"center"}});
+  xlsStyleRange(ws,1,0,1,lastCol,{font:xlsFont({bold:true,color:{rgb:XLS_COL_TITLE_BG}}),fill:{patternType:"solid",fgColor:{rgb:XLS_COL_SUBTITLE_BG}},alignment:{horizontal:"center",vertical:"center"}});
+  for(let c=0;c<=lastCol;c++) xlsEnsureCell(ws,3,c).s={font:xlsFont({bold:true,color:{rgb:XLS_COL_HEAD_FG}}),fill:{patternType:"solid",fgColor:{rgb:XLS_COL_HEAD_BG}},alignment:{horizontal:"center",vertical:"center"},border:xlsBorder()};
+  groups.forEach((g,i)=>{
+    const r=4+i, zebra=i%2===1;
+    for(let c=0;c<=lastCol;c++){
+      const cell=xlsEnsureCell(ws,r,c);
+      const style={font:xlsFont({}),alignment:{horizontal:c===1?"left":"center",vertical:"center"},border:xlsBorder()};
+      if(zebra) style.fill={patternType:"solid",fgColor:{rgb:XLS_COL_ZEBRA}};
+      if(c>=2) style.numFmt="#,##0";
+      cell.s=style;
+    }
+  });
+  for(let c=0;c<=lastCol;c++){
+    const cell=xlsEnsureCell(ws,totalRow,c);
+    cell.s={font:xlsFont({bold:true}),fill:{patternType:"solid",fgColor:{rgb:XLS_COL_TOTAL_BG}},alignment:{horizontal:c===1?"left":"center",vertical:"center"},border:xlsBorder(),numFmt:c>=3?"#,##0":undefined};
+  }
+  return ws;
+}
+
+function buildDetailSheetPL(groups){
+  const ws={};
+  const lastCol=4; // A..E
+  xlsSetCell(ws,0,0,"DÉTAIL UM PAR ARTICLE — POLOGNE");
+  xlsSetCell(ws,1,0,"Tri : UM complètes d'abord, incomplètes en fin de bloc");
+  ["N° scan","Code article","Désignation","UM","Quantité"].forEach((h,c)=>xlsSetCell(ws,3,c,h));
+
+  let r=4;
+  const bandeauRows=[], incompleteRows=[], qtySegments=[], merges=[
+    {s:{r:0,c:0},e:{r:0,c:lastCol}},{s:{r:1,c:0},e:{r:1,c:lastCol}},
+  ];
+  let totalQty=0;
+  groups.forEach(g=>{
+    const label=g.code+" — "+g.des+"   ("+g.count+" UM / "+g.qty+" u. / std "+g.qteStd+")";
+    xlsSetCell(ws,r,0,label);
+    merges.push({s:{r,c:0},e:{r,c:lastCol}});
+    bandeauRows.push(r);
+    r++;
+    const segStart=r;
+    const sorted=g.list.slice().sort((a,b)=>{
+      const ai=(a.qty??0)<g.qteStd?1:0, bi=(b.qty??0)<g.qteStd?1:0;
+      if(ai!==bi) return ai-bi;
+      const lc=(a.um||"").localeCompare(b.um||"");
+      if(lc!==0) return lc;
+      return a.seq-b.seq;
+    });
+    sorted.forEach(p=>{
+      const incomplete=(p.qty??0)<g.qteStd;
+      xlsSetCell(ws,r,0,p.seq,true);
+      xlsSetCell(ws,r,1,g.code);
+      xlsSetCell(ws,r,2,g.des);
+      xlsSetCell(ws,r,3,p.um||"");
+      xlsSetCell(ws,r,4,p.qty??0,true);
+      totalQty+=(+p.qty||0);
+      if(incomplete) incompleteRows.push(r);
+      r++;
+    });
+    if(r>segStart) qtySegments.push([segStart,r-1]);
+  });
+  const totalRow=r;
+  xlsSetCell(ws,totalRow,0,"TOTAL");
+  for(let c=1;c<=3;c++) xlsEnsureCell(ws,totalRow,c);
+  if(qtySegments.length>0){
+    const f="SUM("+qtySegments.map(([s,e])=>"E"+(s+1)+":E"+(e+1)).join(",")+")";
+    ws[XLSX.utils.encode_cell({r:totalRow,c:4})]={t:"n",v:totalQty,f};
+  }else{
+    xlsSetCell(ws,totalRow,4,0,true);
+  }
+
+  ws["!ref"]=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:totalRow,c:lastCol}});
+  ws["!merges"]=merges;
+  ws["!cols"]=[{wch:11},{wch:12},{wch:34},{wch:16},{wch:11}];
+  ws["!freeze"]={xSplit:0,ySplit:4,topLeftCell:"A5",activePane:"bottomLeft",state:"frozen"};
+
+  xlsStyleRange(ws,0,0,0,lastCol,{font:xlsFont({bold:true,sz:13,color:{rgb:XLS_COL_TITLE_FG}}),fill:{patternType:"solid",fgColor:{rgb:XLS_COL_TITLE_BG}},alignment:{horizontal:"center",vertical:"center"}});
+  xlsStyleRange(ws,1,0,1,lastCol,{font:xlsFont({bold:true,color:{rgb:XLS_COL_TITLE_BG}}),fill:{patternType:"solid",fgColor:{rgb:XLS_COL_SUBTITLE_BG}},alignment:{horizontal:"center",vertical:"center"}});
+  for(let c=0;c<=lastCol;c++) xlsEnsureCell(ws,3,c).s={font:xlsFont({bold:true,color:{rgb:XLS_COL_HEAD_FG}}),fill:{patternType:"solid",fgColor:{rgb:XLS_COL_HEAD_BG}},alignment:{horizontal:"center",vertical:"center"},border:xlsBorder()};
+  bandeauRows.forEach(r=>{xlsStyleRange(ws,r,0,r,lastCol,{font:xlsFont({bold:true,color:{rgb:XLS_COL_BAND_FG}}),fill:{patternType:"solid",fgColor:{rgb:XLS_COL_BAND_BG}},alignment:{horizontal:"left",vertical:"center"}});});
+  const bandeauSet=new Set(bandeauRows), incompleteSet=new Set(incompleteRows);
+  let zebraCount=0;
+  for(let rr=4;rr<totalRow;rr++){
+    if(bandeauSet.has(rr)) continue;
+    const zebra=(zebraCount++)%2===1;
+    const incomplete=incompleteSet.has(rr);
+    for(let c=0;c<=lastCol;c++){
+      const cell=xlsEnsureCell(ws,rr,c);
+      const style={font:xlsFont({}),alignment:{horizontal:c===2?"left":"center",vertical:"center"},border:xlsBorder()};
+      if(incomplete) style.fill={patternType:"solid",fgColor:{rgb:XLS_COL_INCOMPLETE_BG}};
+      else if(zebra) style.fill={patternType:"solid",fgColor:{rgb:XLS_COL_ZEBRA}};
+      if(c===0||c===4) style.numFmt="#,##0";
+      cell.s=style;
+    }
+  }
+  for(let c=0;c<=lastCol;c++){
+    const cell=xlsEnsureCell(ws,totalRow,c);
+    cell.s={font:xlsFont({bold:true}),fill:{patternType:"solid",fgColor:{rgb:XLS_COL_TOTAL_BG}},alignment:{horizontal:c===2?"left":"center",vertical:"center"},border:xlsBorder(),numFmt:c===4?"#,##0":undefined};
+  }
+  return ws;
+}
+
+function buildSynthesisWorkbookPL(){
+  const groups=computeArticleGroupsPL();
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,buildSynthSheetPL(groups),"Synthèse Pologne");
+  XLSX.utils.book_append_sheet(wb,buildDetailSheetPL(groups),"Détail UM Pologne");
+  return wb;
+}
+function exportSynthesisXlsxPL(){
+  if(typeof XLSX==="undefined"){toast("Module Excel non chargé — connexion Internet requise la 1re fois.");return;}
+  const d=new Date();
+  const name="Synthese_pologne_"+d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")+".xlsx";
+  XLSX.writeFile(buildSynthesisWorkbookPL(),name);
+  toast("Export synthèse Pologne généré.");
+}
+$("exportXlsxPL2").onclick=exportSynthesisXlsxPL;
+
 /* ===== SAUVEGARDE APP ===== */
 $("saveApp").onclick=()=>{
   const html=document.documentElement.outerHTML;
@@ -1017,6 +1501,7 @@ $("saveApp").onclick=()=>{
 };
 
 $("clearScan").onclick=()=>{if(scans.length&&confirm("Effacer toutes les palettes scannées ?")){scans=[];seqCounter=0;renderAll();}};
+$("clearScanPL").onclick=()=>{if(scansPL.length&&confirm("Effacer toutes les UM scannées (Pologne) ?")){scansPL=[];seqCounterPL=0;renderAll();}};
 
 renderAll();$("scan").focus();
 </script>
