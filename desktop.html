@@ -92,12 +92,12 @@
   /* Ligne de scan : douchette branchée, le champ reste toujours au focus */
   .scanrow{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap}
   .scanrow .field.grow{flex:1;min-width:280px}
-  #scan{
+  #scan,#plGtin,#plUm{
     font-size:17px;padding:13px 15px;border:1.5px solid var(--teal-deep);border-radius:11px;
     background:var(--scan);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
     color:var(--ink);width:100%;font-family:ui-monospace,Menlo,Consolas,monospace;outline:none;
   }
-  #scan:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(63,214,196,.15)}
+  #scan:focus,#plGtin:focus,#plUm:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(63,214,196,.15)}
   .stepper{
     display:flex;align-items:stretch;background:var(--glass);
     -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
@@ -105,11 +105,12 @@
   }
   .stepper button{width:42px;border:none;background:transparent;color:var(--teal);font-size:19px;font-weight:700;cursor:pointer;flex-shrink:0}
   .stepper button:hover{background:rgba(63,214,196,.12)}
-  #qty{
+  #qty,#plQty{
     flex:1;min-width:0;text-align:center;font-size:16px;font-weight:700;border:none;background:transparent;color:var(--ink);
     outline:none;font-variant-numeric:tabular-nums;-moz-appearance:textfield;padding:13px 4px;
   }
-  #qty::-webkit-outer-spin-button,#qty::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  #qty::-webkit-outer-spin-button,#qty::-webkit-inner-spin-button,
+  #plQty::-webkit-outer-spin-button,#plQty::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
   .btn-add{
     border:none;background:var(--teal);color:#04231f;padding:13px 26px;border-radius:11px;
     font-size:15px;font-weight:800;cursor:pointer;transition:.15s;flex-shrink:0;
