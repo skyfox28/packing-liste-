@@ -20,6 +20,17 @@
   }
   *{box-sizing:border-box}
   html,body{margin:0;height:100%}
+  /* Empêche Chrome/Edge d'imposer un fond blanc d'autofill sur les champs
+     déjà saisis, même avec autocomplete="off" (souvent ignoré par le
+     navigateur pour les champs texte classiques). */
+  input:-webkit-autofill,input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,input:-webkit-autofill:active{
+    -webkit-text-fill-color:var(--ink)!important;
+    caret-color:var(--ink);
+    box-shadow:0 0 0 1000px var(--bg-2) inset!important;
+    -webkit-box-shadow:0 0 0 1000px var(--bg-2) inset!important;
+    transition:background-color 99999s ease-in-out 0s;
+  }
   body{
     color:var(--ink);
     font-family:-apple-system,"SF Pro Text",system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
