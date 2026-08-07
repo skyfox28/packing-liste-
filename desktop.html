@@ -345,11 +345,13 @@
           </div>
           <button class="btn-add" id="plAddBtn">Ajouter la palette</button>
         </div>
-        <div class="hint">Scannez d'abord le <b>GTIN</b> (Entrée → passe sur UM), puis l'<b>UM</b> (Entrée → passe sur Quantité), puis validez. Cliquez sur une quantité dans la liste pour la modifier.</div>
+        <div class="hint">Scannez d'abord le <b>GTIN</b> (Entrée → passe sur UM), puis l'<b>UM</b> (Entrée → passe sur Quantité), puis validez. DLUO et lot sont lus automatiquement si l'étiquette scannée les contient. Cliquez sur une quantité dans la liste pour la modifier.</div>
         <div class="decoded" id="previewPL" style="display:none">
           <div class="cell accent"><div class="k">Code article</div><div class="v" id="pvCodePL">—</div></div>
           <div class="cell"><div class="k">Désignation</div><div class="v" id="pvDesPL">—</div></div>
           <div class="cell"><div class="k">GTIN</div><div class="v" id="pvGtinPL">—</div></div>
+          <div class="cell"><div class="k">DLUO</div><div class="v" id="pvDatePL">—</div></div>
+          <div class="cell"><div class="k">Lot</div><div class="v lot" id="pvLotPL">—</div></div>
           <div class="cell"><div class="k">UM</div><div class="v" id="pvUmPL">—</div></div>
           <div class="cell"><div class="k">Qté / UM (réf.)</div><div class="v" id="pvQtePalPL">—</div></div>
         </div>
@@ -364,14 +366,15 @@
         <div class="filterbar">
           <div class="searchpill">
             <span class="ic">🔍</span>
-            <input type="text" id="fSearchPL" placeholder="Rechercher UM, code, désignation…">
+            <input type="text" id="fSearchPL" placeholder="Rechercher UM, lot, code, désignation…">
           </div>
           <select id="fArticlePL"><option value="">Tous les articles</option></select>
+          <select id="fLotPL"><option value="">Tous les lots</option></select>
           <button class="btn ghost" id="fResetPL">✕ Réinitialiser</button>
         </div>
         <div class="tablewrap">
           <table>
-            <thead><tr><th>N°</th><th>Code</th><th>Désignation</th><th>UM</th><th class="num">Qté</th><th></th></tr></thead>
+            <thead><tr><th>N°</th><th>Code</th><th>Désignation</th><th>DLUO</th><th>Lot</th><th>UM</th><th class="num">Qté</th><th></th></tr></thead>
             <tbody id="scanBodyPL"></tbody>
           </table>
         </div>
@@ -426,10 +429,10 @@
           </div>
         </div>
         <div class="panel">
-          <div class="section-label">Détail par UM — article › UM</div>
+          <div class="section-label">Détail par UM — article › lot › UM</div>
           <div class="tablewrap">
             <table>
-              <thead><tr><th>Article · UM</th><th></th><th class="num">UM</th><th class="num">Quantité</th></tr></thead>
+              <thead><tr><th>Article · lot · UM</th><th>DLUO</th><th class="num">UM</th><th class="num">Quantité</th></tr></thead>
               <tbody id="treeBodyPL"></tbody>
             </table>
           </div>
@@ -594,6 +597,7 @@ let articles = [
   {gtin:"13179142062116", des:"ETUI PECTINE MIX X14-VA", code:"901629239", qtePal:256},
   {gtin:"13179142064226", des:"ETUI FERMENT CITRON X14 -VA", code:"901733244", qtePal:256},
   {gtin:"13166296659583", des:"SCH SAUCE BECH FROM X15-DU", code:"901768678", qtePal:168},
+  {gtin:"03166296455140", des:"SCH PAELLA       X010-DU", code:"901616629", qtePal:420},
 ]; /* END_ARTICLES */
 
 let scans = [];
@@ -764,7 +768,7 @@ function renderTree(){
 }
 
 /* ===== POLOGNE (GTIN + UM) ===== */
-let filterArticlePL="", filterSearchPL="";
+let filterArticlePL="", filterLotPL="", filterSearchPL="";
 
 function refreshCountersPL(){
   const el=$("plStats");
@@ -773,22 +777,27 @@ function refreshCountersPL(){
 }
 
 function rebuildFiltersPL(){
-  const artSel=$("fArticlePL");
-  const prevArt=artSel.value;
+  const artSel=$("fArticlePL"), lotSel=$("fLotPL");
+  const prevArt=artSel.value, prevLot=lotSel.value;
   artSel.innerHTML=`<option value="">Tous les articles</option>`;
   const arts=new Map();
   scansPL.forEach(r=>{if(!arts.has(r.gtin))arts.set(r.gtin,r.code+" — "+r.des);});
   arts.forEach((label,gtin)=>{const o=document.createElement("option");o.value=gtin;o.textContent=label;artSel.appendChild(o);});
   artSel.value=arts.has(prevArt)?prevArt:"";
-  filterArticlePL=artSel.value;
+  lotSel.innerHTML=`<option value="">Tous les lots</option>`;
+  const lots=new Set(scansPL.map(r=>r.lot||"(sans lot)").filter(Boolean));
+  [...lots].sort().forEach(l=>{const o=document.createElement("option");o.value=l;o.textContent=l;lotSel.appendChild(o);});
+  lotSel.value=lots.has(prevLot)?prevLot:"";
+  filterArticlePL=artSel.value; filterLotPL=lotSel.value;
 }
 
 function applyFiltersPL(list){
   let out=list;
   if(filterArticlePL) out=out.filter(r=>r.gtin===filterArticlePL);
+  if(filterLotPL)     out=out.filter(r=>(r.lot||"(sans lot)")===filterLotPL);
   if(filterSearchPL){
     const q=filterSearchPL.toLowerCase();
-    out=out.filter(r=>(r.code||"").toLowerCase().includes(q)||(r.des||"").toLowerCase().includes(q)||(r.um||"").toLowerCase().includes(q));
+    out=out.filter(r=>(r.code||"").toLowerCase().includes(q)||(r.des||"").toLowerCase().includes(q)||(r.um||"").toLowerCase().includes(q)||(r.lot||"").toLowerCase().includes(q));
   }
   return out;
 }
@@ -797,13 +806,13 @@ function renderScanTablePL(){
   rebuildFiltersPL();
   const filtered=applyFiltersPL(scansPL);
   const fc=$("filtCountPL");
-  const isFiltered=filterArticlePL||filterSearchPL;
+  const isFiltered=filterArticlePL||filterLotPL||filterSearchPL;
   if(isFiltered&&scansPL.length){fc.style.display="inline";fc.textContent=filtered.length+" / "+scansPL.length+" UM";}
   else fc.style.display="none";
 
   const tb=$("scanBodyPL");tb.innerHTML="";
   if(filtered.length===0){
-    tb.innerHTML=`<tr><td colspan="6" class="empty">${scansPL.length===0?"Aucune UM scannée pour l'instant.":"Aucun résultat pour les filtres actifs."}</td></tr>`;
+    tb.innerHTML=`<tr><td colspan="8" class="empty">${scansPL.length===0?"Aucune UM scannée pour l'instant.":"Aucun résultat pour les filtres actifs."}</td></tr>`;
     refreshCountersPL();return;
   }
   filtered.forEach(r=>{
@@ -815,6 +824,8 @@ function renderScanTablePL(){
       <td class="seq">${r.seq}</td>
       <td class="code">${r.code||"—"}</td>
       <td>${r.des}${unknown?' <span class="pill bad">inconnu</span>':''}</td>
+      <td>${r.dluo||"—"}</td>
+      <td class="lot">${r.lot||"—"}</td>
       <td class="lot">${r.um||"—"}</td>
       <td class="num qty-cell" title="Cliquer pour modifier" data-idx="${idx}">${r.qty??""}</td>
       <td><button class="btn ghost" data-del="${idx}" style="padding:4px 10px">✕</button></td>`;
@@ -871,11 +882,21 @@ function renderTreePL(){
       <span class="meta">${artCount} UM · ${artQty} u.</span></div></td>
       <td class="num">${artCount}</td><td class="num">${artQty}</td>`;
     tb.appendChild(ar);
-    list.slice().sort((a,b)=>a.seq-b.seq).forEach(p=>{
-      const pr=document.createElement("tr");pr.className="lvl-pal";
-      pr.innerHTML=`<td class="palcell">UM ${p.um||"—"} · scan n°${p.seq}</td>
-        <td></td><td class="num">1</td><td class="num">${p.qty??""}</td>`;
-      tb.appendChild(pr);
+    const byL={};
+    list.forEach(r=>{(byL[r.lot||"(sans lot)"]=byL[r.lot||"(sans lot)"]||[]).push(r);});
+    Object.keys(byL).sort((a,b)=>a.localeCompare(b)).forEach(lot=>{
+      const ums=byL[lot];
+      const lotCount=ums.length,lotQty=ums.reduce((s,r)=>s+(+r.qty||0),0);
+      const lr=document.createElement("tr");lr.className="lvl-lot";
+      lr.innerHTML=`<td class="lotcell"><span class="lot">Lot ${lot}</span></td>
+        <td></td><td class="num">${lotCount}</td><td class="num">${lotQty}</td>`;
+      tb.appendChild(lr);
+      ums.sort((a,b)=>a.seq-b.seq).forEach(p=>{
+        const pr=document.createElement("tr");pr.className="lvl-pal";
+        pr.innerHTML=`<td class="palcell">UM ${p.um||"—"} · scan n°${p.seq}</td>
+          <td>${p.dluo||"—"}</td><td class="num">1</td><td class="num">${p.qty??""}</td>`;
+        tb.appendChild(pr);
+      });
     });
   });
   const tr=document.createElement("tr");tr.className="totrow";
@@ -912,8 +933,9 @@ $("fLot").onchange=e=>{filterLot=e.target.value;renderScanTable();};
 $("fSearch").oninput=e=>{filterSearch=e.target.value.trim();renderScanTable();};
 $("fReset").onclick=()=>{filterArticle="";filterLot="";filterSearch="";$("fSearch").value="";$("fArticle").value="";$("fLot").value="";renderScanTable();};
 $("fArticlePL").onchange=e=>{filterArticlePL=e.target.value;renderScanTablePL();};
+$("fLotPL").onchange=e=>{filterLotPL=e.target.value;renderScanTablePL();};
 $("fSearchPL").oninput=e=>{filterSearchPL=e.target.value.trim();renderScanTablePL();};
-$("fResetPL").onclick=()=>{filterArticlePL="";filterSearchPL="";$("fSearchPL").value="";$("fArticlePL").value="";renderScanTablePL();};
+$("fResetPL").onclick=()=>{filterArticlePL="";filterLotPL="";filterSearchPL="";$("fSearchPL").value="";$("fArticlePL").value="";$("fLotPL").value="";renderScanTablePL();};
 
 /* ===== PREVIEW + AJOUT ===== */
 function updatePreview(){
@@ -965,6 +987,8 @@ function updatePreviewPL(){
   $("pvDesPL").textContent=info.des;
   $("pvDesPL").parentElement.classList.toggle("bad",info.des==="GTIN inconnu");
   $("pvGtinPL").textContent=d.gtin||"—";
+  $("pvDatePL").textContent=d.dluo||"—";
+  $("pvLotPL").textContent=d.lot||"—";
   $("pvUmPL").textContent=rawU||"—";
   $("pvQtePalPL").textContent=info.qtePal??"—";
 }
@@ -975,7 +999,7 @@ function addScanPL(){
   const d=decode(rawG),info=lookup(d.gtin);
   const qty=$("plQty").value===""?null:(+$("plQty").value);
   seqCounterPL++;
-  scansPL.push({seq:seqCounterPL,gtin:d.gtin,des:info.des,code:info.code,um,qty});
+  scansPL.push({seq:seqCounterPL,gtin:d.gtin,des:info.des,code:info.code,dluo:d.dluo,lot:d.lot,um,qty});
   $("plGtin").value="";$("plUm").value="";$("plQty").value="";$("previewPL").style.display="none";
   renderAll();$("plGtin").focus();
   const rows=$("scanBodyPL").querySelectorAll("tr");
@@ -1010,7 +1034,7 @@ function toCSV(rows){return rows.map(r=>r.map(c=>{const s=String(c??"");return /
 function download(name,text,type){const blob=new Blob([type?text:"﻿"+text],{type:type||"text/csv;charset=utf-8"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=name;a.click();URL.revokeObjectURL(url);}
 $("exportScan").onclick=()=>{const rows=[["N° scan","Code","Désignation","GTIN","DLUO","Lot","Quantité"]];applyFilters(scans).forEach(r=>rows.push([r.seq,r.code,r.des,r.gtin,r.dluo,r.lot,r.qty??""]));download("packing_detail.csv",toCSV(rows));};
 $("exportArt").onclick=()=>{const rows=[["GTIN","Désignation","Code article","Qté/pal"]];articles.forEach(a=>rows.push([a.gtin,a.des,a.code,a.qtePal??""]));download("packing_articles.csv",toCSV(rows));};
-$("exportScanPL").onclick=()=>{const rows=[["N° scan","Code","Désignation","GTIN","UM","Quantité"]];applyFiltersPL(scansPL).forEach(r=>rows.push([r.seq,r.code,r.des,r.gtin,r.um,r.qty??""]));download("packing_pologne_detail.csv",toCSV(rows));};
+$("exportScanPL").onclick=()=>{const rows=[["N° scan","Code","Désignation","GTIN","DLUO","Lot","UM","Quantité"]];applyFiltersPL(scansPL).forEach(r=>rows.push([r.seq,r.code,r.des,r.gtin,r.dluo,r.lot,r.um,r.qty??""]));download("packing_pologne_detail.csv",toCSV(rows));};
 
 function buildTreeRows(){
   const out=[];
@@ -1045,7 +1069,12 @@ function buildTreeRowsPL(){
   order.forEach(g=>{
     const list=byG[g],info=lookup(g);
     out.push(["Article",info.code,info.des,list.length,list.reduce((s,r)=>s+(+r.qty||0),0)]);
-    list.slice().sort((a,b)=>a.seq-b.seq).forEach(p=>out.push(["  UM",p.um||"","scan n°"+p.seq,1,p.qty??""]));
+    const byL={};list.forEach(r=>{(byL[r.lot||"(sans lot)"]=byL[r.lot||"(sans lot)"]||[]).push(r);});
+    Object.keys(byL).sort((a,b)=>a.localeCompare(b)).forEach(lot=>{
+      const ums=byL[lot];
+      out.push(["  Lot",lot,"",ums.length,ums.reduce((s,r)=>s+(+r.qty||0),0)]);
+      ums.sort((a,b)=>a.seq-b.seq).forEach(p=>out.push(["    UM",p.um||"","scan n°"+p.seq+" / "+(p.dluo||""),1,p.qty??""]));
+    });
   });
   return out;
 }
@@ -1054,7 +1083,7 @@ $("exportSynthPL").onclick=()=>{
   const byG={};scansPL.forEach(r=>{const g=r.gtin||"(vide)";byG[g]=byG[g]||{count:0,qty:0,des:r.des,code:r.code};byG[g].count++;byG[g].qty+=(+r.qty||0);});
   articles.forEach(a=>{const d=byG[a.gtin];rows.push([a.code,a.des,d?d.count:0,d?d.qty:0]);});
   Object.keys(byG).forEach(g=>{if(!articles.find(a=>a.gtin===g))rows.push([byG[g].code,byG[g].des,byG[g].count,byG[g].qty]);});
-  rows.push([]);rows.push(["=== DÉTAIL : article > UM ==="],["Niveau","Code / UM","Désignation / scan","UM","Quantité"]);
+  rows.push([]);rows.push(["=== DÉTAIL : article > lot > UM ==="],["Niveau","Code / Lot / UM","Désignation / scan / DLUO","UM","Quantité"]);
   buildTreeRowsPL().forEach(t=>rows.push(t));
   download("packing_pologne_synthese.csv",toCSV(rows));
 };
@@ -1113,11 +1142,11 @@ $("exportXlsx").onclick=exportXlsx;
 function buildWorkbookPL(){
   const wb=XLSX.utils.book_new();
 
-  const d1=[["N° scan","Code article","Désignation","GTIN","UM","Quantité"]];
-  scansPL.forEach(r=>d1.push([r.seq,r.code,r.des,r.gtin,r.um,r.qty??""]));
+  const d1=[["N° scan","Code article","Désignation","GTIN","DLUO","Lot","UM","Quantité"]];
+  scansPL.forEach(r=>d1.push([r.seq,r.code,r.des,r.gtin,r.dluo,r.lot,r.um,r.qty??""]));
   const ws1=XLSX.utils.aoa_to_sheet(d1);
-  ws1["!cols"]=[{wch:8},{wch:12},{wch:32},{wch:16},{wch:16},{wch:10}];
-  ws1["!autofilter"]={ref:"A1:F"+(d1.length)};
+  ws1["!cols"]=[{wch:8},{wch:12},{wch:32},{wch:16},{wch:12},{wch:12},{wch:16},{wch:10}];
+  ws1["!autofilter"]={ref:"A1:H"+(d1.length)};
   XLSX.utils.book_append_sheet(wb,ws1,"PL Ordre de scan");
 
   const byG={};scansPL.forEach(r=>{const g=r.gtin||"(vide)";byG[g]=byG[g]||{count:0,qty:0,des:r.des,code:r.code};byG[g].count++;byG[g].qty+=(+r.qty||0);});
@@ -1423,10 +1452,10 @@ function buildSynthSheetPL(groups){
 
 function buildDetailSheetPL(groups){
   const ws={};
-  const lastCol=4; // A..E
+  const lastCol=6; // A..G
   xlsSetCell(ws,0,0,"DÉTAIL UM PAR ARTICLE — POLOGNE");
-  xlsSetCell(ws,1,0,"Tri : UM complètes d'abord, incomplètes en fin de bloc");
-  ["N° scan","Code article","Désignation","UM","Quantité"].forEach((h,c)=>xlsSetCell(ws,3,c,h));
+  xlsSetCell(ws,1,0,"Tri : UM complètes d'abord (par lot puis n° scan), incomplètes en fin de bloc");
+  ["N° scan","Code article","Désignation","DLUO","Lot","UM","Quantité"].forEach((h,c)=>xlsSetCell(ws,3,c,h));
 
   let r=4;
   const bandeauRows=[], incompleteRows=[], qtySegments=[], merges=[
@@ -1443,7 +1472,7 @@ function buildDetailSheetPL(groups){
     const sorted=g.list.slice().sort((a,b)=>{
       const ai=(a.qty??0)<g.qteStd?1:0, bi=(b.qty??0)<g.qteStd?1:0;
       if(ai!==bi) return ai-bi;
-      const lc=(a.um||"").localeCompare(b.um||"");
+      const lc=(a.lot||"").localeCompare(b.lot||"");
       if(lc!==0) return lc;
       return a.seq-b.seq;
     });
@@ -1452,8 +1481,10 @@ function buildDetailSheetPL(groups){
       xlsSetCell(ws,r,0,p.seq,true);
       xlsSetCell(ws,r,1,g.code);
       xlsSetCell(ws,r,2,g.des);
-      xlsSetCell(ws,r,3,p.um||"");
-      xlsSetCell(ws,r,4,p.qty??0,true);
+      xlsSetCell(ws,r,3,p.dluo||"");
+      xlsSetCell(ws,r,4,p.lot||"");
+      xlsSetCell(ws,r,5,p.um||"");
+      xlsSetCell(ws,r,6,p.qty??0,true);
       totalQty+=(+p.qty||0);
       if(incomplete) incompleteRows.push(r);
       r++;
@@ -1462,17 +1493,17 @@ function buildDetailSheetPL(groups){
   });
   const totalRow=r;
   xlsSetCell(ws,totalRow,0,"TOTAL");
-  for(let c=1;c<=3;c++) xlsEnsureCell(ws,totalRow,c);
+  for(let c=1;c<=5;c++) xlsEnsureCell(ws,totalRow,c);
   if(qtySegments.length>0){
-    const f="SUM("+qtySegments.map(([s,e])=>"E"+(s+1)+":E"+(e+1)).join(",")+")";
-    ws[XLSX.utils.encode_cell({r:totalRow,c:4})]={t:"n",v:totalQty,f};
+    const f="SUM("+qtySegments.map(([s,e])=>"G"+(s+1)+":G"+(e+1)).join(",")+")";
+    ws[XLSX.utils.encode_cell({r:totalRow,c:6})]={t:"n",v:totalQty,f};
   }else{
-    xlsSetCell(ws,totalRow,4,0,true);
+    xlsSetCell(ws,totalRow,6,0,true);
   }
 
   ws["!ref"]=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:totalRow,c:lastCol}});
   ws["!merges"]=merges;
-  ws["!cols"]=[{wch:11},{wch:12},{wch:34},{wch:16},{wch:11}];
+  ws["!cols"]=[{wch:11},{wch:12},{wch:34},{wch:12},{wch:12},{wch:16},{wch:11}];
   ws["!freeze"]={xSplit:0,ySplit:4,topLeftCell:"A5",activePane:"bottomLeft",state:"frozen"};
 
   xlsStyleRange(ws,0,0,0,lastCol,{font:xlsFont({bold:true,sz:13,color:{rgb:XLS_COL_TITLE_FG}}),fill:{patternType:"solid",fgColor:{rgb:XLS_COL_TITLE_BG}},alignment:{horizontal:"center",vertical:"center"}});
@@ -1490,13 +1521,13 @@ function buildDetailSheetPL(groups){
       const style={font:xlsFont({}),alignment:{horizontal:c===2?"left":"center",vertical:"center"},border:xlsBorder()};
       if(incomplete) style.fill={patternType:"solid",fgColor:{rgb:XLS_COL_INCOMPLETE_BG}};
       else if(zebra) style.fill={patternType:"solid",fgColor:{rgb:XLS_COL_ZEBRA}};
-      if(c===0||c===4) style.numFmt="#,##0";
+      if(c===0||c===6) style.numFmt="#,##0";
       cell.s=style;
     }
   }
   for(let c=0;c<=lastCol;c++){
     const cell=xlsEnsureCell(ws,totalRow,c);
-    cell.s={font:xlsFont({bold:true}),fill:{patternType:"solid",fgColor:{rgb:XLS_COL_TOTAL_BG}},alignment:{horizontal:c===2?"left":"center",vertical:"center"},border:xlsBorder(),numFmt:c===4?"#,##0":undefined};
+    cell.s={font:xlsFont({bold:true}),fill:{patternType:"solid",fgColor:{rgb:XLS_COL_TOTAL_BG}},alignment:{horizontal:c===2?"left":"center",vertical:"center"},border:xlsBorder(),numFmt:c===6?"#,##0":undefined};
   }
   return ws;
 }
