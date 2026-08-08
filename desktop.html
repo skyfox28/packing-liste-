@@ -250,7 +250,7 @@
       <button data-tab="art"><span class="icon">🏷️</span><span class="lbl">Articles</span></button>
     </nav>
     <div class="side-stats">
-      <div class="side-stat pal"><span>Palettes</span><b id="palCount">0</b></div>
+      <div class="side-stat pal"><span id="palLabel">Palettes</span><b id="palCount">0</b></div>
       <div class="side-stat qte"><span>Unités</span><b id="qtyCount">0</b></div>
     </div>
     <div class="side-hint">Douchette branchée en USB/Bluetooth : elle se comporte comme un clavier, aucune configuration requise.</div>
@@ -630,8 +630,11 @@ function lookup(gtin){const a=articles.find(x=>x.gtin===gtin);return a?{des:a.de
 const $=id=>document.getElementById(id);
 function toast(m){const t=$("toast");t.textContent=m;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2400);}
 function refreshCounters(){
-  $("palCount").textContent=scans.length;
-  $("qtyCount").textContent=scans.reduce((s,r)=>s+(+r.qty||0),0);
+  const onPL=document.querySelector("nav.sidenav button.active")?.dataset.tab==="pl";
+  const src=onPL?scansPL:scans;
+  $("palLabel").textContent=onPL?"UM":"Palettes";
+  $("palCount").textContent=src.length;
+  $("qtyCount").textContent=src.reduce((s,r)=>s+(+r.qty||0),0);
 }
 
 /* ===== FILTRES ===== */
@@ -1026,6 +1029,7 @@ document.querySelectorAll("nav.sidenav button").forEach(btn=>btn.onclick=()=>{
   btn.classList.add("active");$("tab-"+btn.dataset.tab).classList.add("active");
   if(btn.dataset.tab==="scan")$("scan").focus();
   if(btn.dataset.tab==="pl")$("plGtin").focus();
+  refreshCounters();
 });
 $("addArt").onclick=()=>{articles.push({gtin:"",des:"",code:"",qtePal:null});renderArticles();};
 
