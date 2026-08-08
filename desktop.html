@@ -248,6 +248,7 @@
       <button data-tab="pl"><span class="icon flag-pl" aria-label="Pologne"></span><span class="lbl">Pologne</span></button>
       <button data-tab="synth"><span class="icon">📊</span><span class="lbl">Synthèse</span></button>
       <button data-tab="art"><span class="icon">🏷️</span><span class="lbl">Articles</span></button>
+      <button data-tab="po"><span class="icon">🧮</span><span class="lbl">Répartition PO</span></button>
     </nav>
     <div class="side-stats">
       <div class="side-stat pal"><span id="palLabel">Palettes</span><b id="palCount">0</b></div>
@@ -463,6 +464,46 @@
           <button class="btn ghost" id="exportArt">Table CSV</button>
         </div>
         <div class="hint">Ajoutez ou modifiez vos GTIN, puis <b>Sauvegarder l'app</b> : un nouveau fichier HTML est téléchargé avec vos articles intégrés. Rouvrez ce fichier-là ensuite — tout est déjà rempli.</div>
+      </div>
+    </section>
+
+    <!-- RÉPARTITION PO -->
+    <section class="view" id="tab-po">
+      <header class="pagehead">
+        <h2>Répartition PO</h2>
+        <p>Saisissez les quantités demandées par PO / lot / article ; l'app compare avec les palettes réellement scannées (onglet Scan) et indique quoi combiner ou diviser.</p>
+      </header>
+      <div class="panel">
+        <div class="section-label">Quantités demandées par PO</div>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>PO</th><th>Code article</th><th>Lot</th><th>Qté demandée</th><th></th></tr></thead>
+            <tbody id="poBody"></tbody>
+          </table>
+        </div>
+        <div class="btnbar">
+          <button class="btn" id="addPoRow">+ Ajouter une ligne</button>
+          <button class="btn warn" id="clearPoRows">Tout effacer</button>
+        </div>
+        <div class="hint">Une ligne = un couple (PO, article, lot) avec sa quantité demandée (en colis). L'ordre de saisie des lignes d'un même (article, lot) détermine l'ordre d'affectation des PO (1er PO saisi = servi en premier).</div>
+      </div>
+
+      <div class="panel">
+        <div class="section-label">
+          <span>Résultat — répartition par PO / livraison</span>
+          <span class="filtag" id="poEcartCount" style="display:none"></span>
+        </div>
+        <div id="poEcarts"></div>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>PO</th><th>Livraison</th><th>Code</th><th>Désignation</th><th>Lot</th><th class="num">Colis</th><th>Combiner avec</th></tr></thead>
+            <tbody id="poResultBody"></tbody>
+          </table>
+        </div>
+        <div class="btnbar">
+          <button class="btn save" id="exportPoXlsx">Exporter en Excel</button>
+          <button class="btn ghost" id="exportPoCsv">Export CSV</button>
+        </div>
       </div>
     </section>
   </main>
@@ -928,7 +969,157 @@ function renderArticles(){
   ab.querySelectorAll("[data-delart]").forEach(b=>b.onclick=()=>{articles.splice(+b.dataset.delart,1);renderAll();});
 }
 
-function renderAll(){renderScanTable();renderProd();renderTree();renderArticles();renderScanTablePL();renderProdPL();renderTreePL();}
+/* ===== RÉPARTITION PO (rapprochement demande PO vs scan réel) ===== */
+let poRows = [];
+
+function renderPoRows(){
+  const pb=$("poBody");pb.innerHTML="";
+  if(poRows.length===0){
+    pb.innerHTML=`<tr><td colspan="5" class="empty">Aucune ligne — ajoutez les quantités demandées par PO.</td></tr>`;
+    return;
+  }
+  poRows.forEach((r,idx)=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML=`
+      <td><input class="edit mono" value="${r.po||''}" data-f="po" data-i="${idx}" placeholder="N° PO"></td>
+      <td><input class="edit mono" value="${r.code||''}" data-f="code" data-i="${idx}" placeholder="Code article"></td>
+      <td><input class="edit mono" value="${r.lot||''}" data-f="lot" data-i="${idx}" placeholder="Lot"></td>
+      <td><input class="edit mono" value="${r.qtyDemandee??''}" data-f="qtyDemandee" data-i="${idx}" inputmode="numeric" placeholder="0" style="width:90px"></td>
+      <td><button class="btn ghost" data-delpo="${idx}" style="padding:4px 10px">✕</button></td>`;
+    pb.appendChild(tr);
+  });
+  pb.querySelectorAll("input.edit").forEach(inp=>inp.onchange=()=>{
+    const v=inp.value.trim();
+    poRows[+inp.dataset.i][inp.dataset.f]=inp.dataset.f==="qtyDemandee"?(v===""?0:+v):v;
+    renderAll();
+  });
+  pb.querySelectorAll("[data-delpo]").forEach(b=>b.onclick=()=>{poRows.splice(+b.dataset.delpo,1);renderAll();});
+}
+$("addPoRow").onclick=()=>{poRows.push({po:"",code:"",lot:"",qtyDemandee:0});renderAll();};
+$("clearPoRows").onclick=()=>{if(poRows.length&&confirm("Effacer toutes les lignes de répartition PO ?")){poRows=[];renderAll();}};
+
+// Calcule, pour chaque (code, lot) demandé, la répartition des palettes réellement
+// scannées entre les PO — dans l'ordre de saisie des lignes — en combinant/divisant
+// la palette qui chevauche deux PO. Calcule aussi le n° de livraison par PO (une
+// livraison ne porte qu'un seul lot par article ; position k du lot pour cet article
+// dans ce PO = livraison k) et les écarts demandé/réel par lot.
+function computePOAllocation(){
+  const groups={}; // "code||lot" -> {code, lot, poList:[{po,qtyDemandee}]}
+  poRows.forEach(r=>{
+    if(!r.code||!r.lot) return;
+    const key=r.code+"||"+r.lot;
+    (groups[key]=groups[key]||{code:r.code,lot:r.lot,poList:[]}).poList.push({po:r.po||"(sans PO)",qtyDemandee:+r.qtyDemandee||0});
+  });
+
+  const realByKey={};
+  scans.forEach(r=>{
+    if(!r.code) return;
+    const key=r.code+"||"+(r.lot||"");
+    (realByKey[key]=realByKey[key]||[]).push(r);
+  });
+  const qteStdByCode={};
+  computeArticleGroups().forEach(g=>{qteStdByCode[g.code]=g.qteStd;});
+
+  const rows=[], ecarts=[];
+  Object.keys(groups).forEach(key=>{
+    const grp=groups[key];
+    const artInfo=articles.find(a=>a.code===grp.code);
+    const realSrc=(realByKey[key]||[]);
+    const des=artInfo?artInfo.des:(realSrc[0]?realSrc[0].des:"");
+    const qteStd=qteStdByCode[grp.code]??0;
+
+    const realList=realSrc.slice().sort((a,b)=>{
+      const ai=(+a.qty||0)<qteStd?1:0, bi=(+b.qty||0)<qteStd?1:0;
+      if(ai!==bi) return ai-bi;
+      return (+b.qty||0)-(+a.qty||0);
+    });
+
+    const totalDemand=grp.poList.reduce((s,p)=>s+p.qtyDemandee,0);
+    const totalReal=realList.reduce((s,p)=>s+(+p.qty||0),0);
+    if(totalDemand!==totalReal){
+      ecarts.push({code:grp.code,des,lot:grp.lot,demande:totalDemand,reel:totalReal,ecart:totalReal-totalDemand});
+    }
+
+    const alloc=grp.poList.map(p=>({po:p.po,qty:0,notes:[]}));
+    let poIdx=0, remaining=grp.poList[0]?.qtyDemandee||0;
+    const excedents=[];
+    realList.forEach(pal=>{
+      let qtyLeft=+pal.qty||0;
+      const parts=[];
+      while(qtyLeft>0&&poIdx<grp.poList.length){
+        if(remaining<=0){poIdx++;if(poIdx>=grp.poList.length)break;remaining=grp.poList[poIdx].qtyDemandee;}
+        const take=Math.min(qtyLeft,remaining);
+        if(take<=0){poIdx++;if(poIdx<grp.poList.length)remaining=grp.poList[poIdx].qtyDemandee;continue;}
+        parts.push({poIdx,qty:take});
+        alloc[poIdx].qty+=take;
+        remaining-=take;
+        qtyLeft-=take;
+      }
+      if(qtyLeft>0) excedents.push({palSeq:pal.seq,qty:qtyLeft});
+      if(parts.length>1){
+        parts.forEach((p,i)=>{
+          const others=parts.filter((_,j)=>j!==i).map(o=>o.qty+" avec PO "+grp.poList[o.poIdx].po).join(", ");
+          alloc[p.poIdx].notes.push(p.qty+" (palette scan n°"+pal.seq+") à combiner avec "+others);
+        });
+      }
+    });
+
+    grp.poList.forEach((p,i)=>{
+      const manque=p.qtyDemandee-alloc[i].qty;
+      rows.push({
+        po:p.po,code:grp.code,des,lot:grp.lot,
+        colis:alloc[i].qty,
+        combiner:alloc[i].notes.join(" ; ")+(manque>0?(alloc[i].notes.length?" ; ":"")+"MANQUE "+manque:""),
+      });
+    });
+    if(excedents.length){
+      const txt=excedents.map(e=>e.qty+" (palette scan n°"+e.palSeq+")").join(", ");
+      rows.push({po:"(non affecté)",code:grp.code,des,lot:grp.lot,colis:excedents.reduce((s,e)=>s+e.qty,0),combiner:"EXCÉDENT non demandé : "+txt});
+    }
+  });
+
+  // Regroupement en livraisons : par PO, par article, position d'apparition du lot = n° livraison
+  const livraisonByPoCodeLot={};
+  const byPO={};
+  poRows.forEach(r=>{if(!r.code||!r.lot)return;(byPO[r.po||"(sans PO)"]=byPO[r.po||"(sans PO)"]||[]).push(r);});
+  Object.keys(byPO).forEach(po=>{
+    const byCode={};
+    byPO[po].forEach(r=>{(byCode[r.code]=byCode[r.code]||[]).push(r.lot);});
+    Object.keys(byCode).forEach(code=>{
+      const lotsInOrder=[...new Set(byCode[code])];
+      lotsInOrder.forEach((lot,i)=>{livraisonByPoCodeLot[po+"||"+code+"||"+lot]=i+1;});
+    });
+  });
+  rows.forEach(r=>{r.livraison=livraisonByPoCodeLot[r.po+"||"+r.code+"||"+r.lot]||"—";});
+
+  rows.sort((a,b)=>String(a.po).localeCompare(String(b.po))||(+a.livraison-+b.livraison||0)||a.code.localeCompare(b.code));
+  return {rows,ecarts};
+}
+
+function renderPoResults(){
+  const {rows,ecarts}=computePOAllocation();
+  const tb=$("poResultBody");tb.innerHTML="";
+  if(rows.length===0){
+    tb.innerHTML=`<tr><td colspan="7" class="empty">Rien à calculer — saisissez des lignes PO correspondant à des articles/lots scannés.</td></tr>`;
+  }else{
+    rows.forEach(r=>{
+      const tr=document.createElement("tr");
+      const flag=/MANQUE|EXCÉDENT/.test(r.combiner);
+      tr.innerHTML=`<td class="code">${r.po}</td><td class="num">${r.livraison}</td><td class="code">${r.code||"—"}</td><td>${r.des||"—"}</td><td class="lot">${r.lot||"—"}</td><td class="num">${r.colis}</td><td>${flag?'<span class="pill bad">'+r.combiner+'</span>':(r.combiner||"—")}</td>`;
+      tb.appendChild(tr);
+    });
+  }
+  const ec=$("poEcarts"), ecCount=$("poEcartCount");
+  if(ecarts.length===0){ec.innerHTML="";ecCount.style.display="none";}
+  else{
+    ecCount.style.display="inline";ecCount.textContent=ecarts.length+" écart(s)";
+    ec.innerHTML=`<div class="hint" style="color:var(--red);margin-bottom:12px">⚠ Écart demandé/réel : `+
+      ecarts.map(e=>`${e.code} lot ${e.lot} — demandé ${e.demande}, scanné ${e.reel} (${e.ecart>0?"+":""}${e.ecart})`).join(" · ")+
+      `</div>`;
+  }
+}
+
+function renderAll(){renderScanTable();renderProd();renderTree();renderArticles();renderScanTablePL();renderProdPL();renderTreePL();renderPoRows();renderPoResults();}
 
 /* ===== ÉVÉNEMENTS FILTRES ===== */
 $("fArticle").onchange=e=>{filterArticle=e.target.value;renderScanTable();};
@@ -1039,6 +1230,25 @@ function download(name,text,type){const blob=new Blob([type?text:"﻿"+text],{ty
 $("exportScan").onclick=()=>{const rows=[["N° scan","Code","Désignation","GTIN","DLUO","Lot","Quantité"]];applyFilters(scans).forEach(r=>rows.push([r.seq,r.code,r.des,r.gtin,r.dluo,r.lot,r.qty??""]));download("packing_detail.csv",toCSV(rows));};
 $("exportArt").onclick=()=>{const rows=[["GTIN","Désignation","Code article","Qté/pal"]];articles.forEach(a=>rows.push([a.gtin,a.des,a.code,a.qtePal??""]));download("packing_articles.csv",toCSV(rows));};
 $("exportScanPL").onclick=()=>{const rows=[["N° scan","Code","Désignation","GTIN","DLUO","Lot","UM","Quantité"]];applyFiltersPL(scansPL).forEach(r=>rows.push([r.seq,r.code,r.des,r.gtin,r.dluo,r.lot,r.um,r.qty??""]));download("packing_pologne_detail.csv",toCSV(rows));};
+$("exportPoCsv").onclick=()=>{
+  const {rows}=computePOAllocation();
+  const out=[["PO","Livraison n°","Article","Lot","Colis","Combiner avec"]];
+  rows.forEach(r=>out.push([r.po,r.livraison,r.code,r.lot,r.colis,r.combiner||""]));
+  download("repartition_po.csv",toCSV(out));
+};
+$("exportPoXlsx").onclick=()=>{
+  if(typeof XLSX==="undefined"){toast("Module Excel non chargé — connexion Internet requise la 1re fois.");return;}
+  const {rows}=computePOAllocation();
+  const d=[["PO","Livraison n°","Article","Lot","Colis","Combiner avec"]];
+  rows.forEach(r=>d.push([r.po,r.livraison,r.code,r.lot,r.colis,r.combiner||""]));
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet(d);
+  ws["!cols"]=[{wch:14},{wch:11},{wch:12},{wch:12},{wch:9},{wch:46}];
+  ws["!autofilter"]={ref:"A1:F"+d.length};
+  XLSX.utils.book_append_sheet(wb,ws,"Répartition PO");
+  XLSX.writeFile(wb,"repartition_po_"+new Date().toISOString().slice(0,10)+".xlsx");
+  toast("Export Excel généré.");
+};
 
 function buildTreeRows(){
   const out=[];
