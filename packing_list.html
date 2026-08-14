@@ -279,7 +279,7 @@
           </div>
           <button class="btn-add" id="addBtn">Ajouter la palette</button>
         </div>
-        <div class="hint">Le curseur passe automatiquement sur <b>Quantité</b> après un scan. Entrée pour valider et revenir au champ de scan. Cliquez sur une quantité dans la liste pour la modifier.</div>
+        <div class="hint">Le curseur passe automatiquement sur <b>Quantité</b> après un scan. Entrée <b>ou Tabulation</b> pour valider et revenir au champ de scan — compatible avec les douchettes qui terminent par Tab au lieu d'Entrée. Cliquez sur une quantité dans la liste pour la modifier.</div>
         <div class="decoded" id="preview" style="display: none;">
           <div class="cell accent"><div class="k">Code article</div><div class="v" id="pvCode">—</div></div>
           <div class="cell bad"><div class="k">Désignation</div><div class="v" id="pvDes">GTIN inconnu</div></div>
@@ -358,7 +358,7 @@
           </div>
           <button class="btn-add" id="plAddBtn">Ajouter la palette</button>
         </div>
-        <div class="hint">Scannez d'abord le <b>GTIN</b> (Entrée → passe sur UM), puis l'<b>UM</b> (Entrée → passe sur Quantité), puis validez. DLUO et lot sont lus automatiquement si l'étiquette scannée les contient. Cliquez sur une quantité dans la liste pour la modifier.</div>
+        <div class="hint">Scannez d'abord le <b>GTIN</b> (Entrée ou Tab → passe sur UM), puis l'<b>UM</b> (Entrée ou Tab → passe sur Quantité), puis validez (Entrée ou Tab). Compatible avec les douchettes qui terminent par Tab au lieu d'Entrée. DLUO et lot sont lus automatiquement si l'étiquette scannée les contient. Cliquez sur une quantité dans la liste pour la modifier.</div>
         <div class="decoded" id="previewPL" style="display:none">
           <div class="cell accent"><div class="k">Code article</div><div class="v" id="pvCodePL">—</div></div>
           <div class="cell"><div class="k">Désignation</div><div class="v" id="pvDesPL">—</div></div>
@@ -470,6 +470,14 @@
         <p>Table de correspondance GTIN → désignation → code article.</p>
       </header>
       <div class="panel">
+        <div class="filterbar">
+          <div class="searchpill">
+            <span class="ic">🔍</span>
+            <input type="text" id="fSearchArt" placeholder="Rechercher un GTIN ou un article…">
+          </div>
+          <span class="filtag" id="filtCountArt" style="display:none"></span>
+          <button class="btn ghost" id="fResetArt">✕ Réinitialiser</button>
+        </div>
         <div class="tablewrap">
           <table>
             <thead><tr><th>GTIN</th><th>Désignation</th><th>Code article</th><th>Qté/pal</th><th></th></tr></thead>
@@ -2303,9 +2311,21 @@ function renderTreePL(){
 }
 
 /* ===== ARTICLES ===== */
+let filterArt="";
 function renderArticles(){
   const ab=$("artBody");ab.innerHTML="";
-  articles.forEach((a,idx)=>{
+  const q=filterArt.trim().toLowerCase();
+  const entries=articles.map((a,idx)=>({a,idx})).filter(({a})=>{
+    if(!q) return true;
+    return (a.gtin||"").toLowerCase().includes(q)||(a.des||"").toLowerCase().includes(q)||(a.code||"").toLowerCase().includes(q);
+  });
+  const fc=$("filtCountArt");
+  if(q){fc.style.display="";fc.textContent=entries.length+" / "+articles.length;}else{fc.style.display="none";}
+  if(entries.length===0){
+    ab.innerHTML=`<tr><td colspan="5" class="empty">Aucun article ne correspond à la recherche.</td></tr>`;
+    return;
+  }
+  entries.forEach(({a,idx})=>{
     const tr=document.createElement("tr");
     tr.innerHTML=`
       <td><input class="edit mono" value="${a.gtin}" data-f="gtin" data-i="${idx}"></td>
@@ -2512,8 +2532,8 @@ function addScan(){
   if(rows.length){const last=rows[rows.length-1];last.classList.add("flash");}
 }
 $("scan").addEventListener("input",updatePreview);
-$("scan").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();if($("scan").value.trim()){$("qty").focus();$("qty").select();}}});
-$("qty").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addScan();}});
+$("scan").addEventListener("keydown",e=>{if(e.key==="Enter"||e.key==="Tab"){e.preventDefault();if($("scan").value.trim()){$("qty").focus();$("qty").select();}}});
+$("qty").addEventListener("keydown",e=>{if(e.key==="Enter"||e.key==="Tab"){e.preventDefault();addScan();}});
 $("addBtn").onclick=addScan;
 
 /* ===== STEPPER QUANTITÉ (+/-) ===== */
@@ -2554,10 +2574,10 @@ function addScanPL(){
   if(rows.length){const last=rows[rows.length-1];last.classList.add("flash");}
 }
 $("plGtin").addEventListener("input",updatePreviewPL);
-$("plGtin").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();if($("plGtin").value.trim()){$("plUm").focus();$("plUm").select();}}});
+$("plGtin").addEventListener("keydown",e=>{if(e.key==="Enter"||e.key==="Tab"){e.preventDefault();if($("plGtin").value.trim()){$("plUm").focus();$("plUm").select();}}});
 $("plUm").addEventListener("input",updatePreviewPL);
-$("plUm").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();if($("plUm").value.trim()){$("plQty").focus();$("plQty").select();}}});
-$("plQty").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addScanPL();}});
+$("plUm").addEventListener("keydown",e=>{if(e.key==="Enter"||e.key==="Tab"){e.preventDefault();if($("plUm").value.trim()){$("plQty").focus();$("plQty").select();}}});
+$("plQty").addEventListener("keydown",e=>{if(e.key==="Enter"||e.key==="Tab"){e.preventDefault();addScanPL();}});
 $("plAddBtn").onclick=addScanPL;
 
 function bumpQtyPL(delta){
@@ -2577,6 +2597,8 @@ document.querySelectorAll("nav.sidenav button").forEach(btn=>btn.onclick=()=>{
   refreshCounters();
 });
 $("addArt").onclick=()=>{articles.push({gtin:"",des:"",code:"",qtePal:null});renderArticles();};
+$("fSearchArt").oninput=e=>{filterArt=e.target.value;renderArticles();};
+$("fResetArt").onclick=()=>{filterArt="";$("fSearchArt").value="";renderArticles();};
 
 /* ===== EXPORTS CSV ===== */
 function toCSV(rows){return rows.map(r=>r.map(c=>{const s=String(c??"");return /[",;\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}).join(";")).join("\r\n");}
