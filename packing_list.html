@@ -279,7 +279,7 @@
           </div>
           <button class="btn-add" id="addBtn">Ajouter la palette</button>
         </div>
-        <div class="hint">Le curseur passe automatiquement sur <b>Quantité</b> après un scan. Entrée <b>ou Tabulation</b> pour valider et revenir au champ de scan — compatible avec les douchettes qui terminent par Tab au lieu d'Entrée. Cliquez sur une quantité dans la liste pour la modifier.</div>
+        <div class="hint">Le curseur passe automatiquement sur <b>Quantité</b> après un scan. Entrée <b>ou Tabulation</b> pour valider et revenir au champ de scan — compatible avec les douchettes qui terminent par Tab au lieu d'Entrée. Tant que la quantité est vide, la validation n'a pas lieu : saisissez ou scannez d'abord une quantité. Cliquez sur une quantité dans la liste pour la modifier.</div>
         <div class="decoded" id="preview" style="display: none;">
           <div class="cell accent"><div class="k">Code article</div><div class="v" id="pvCode">—</div></div>
           <div class="cell bad"><div class="k">Désignation</div><div class="v" id="pvDes">GTIN inconnu</div></div>
@@ -2533,7 +2533,7 @@ function addScan(){
 }
 $("scan").addEventListener("input",updatePreview);
 $("scan").addEventListener("keydown",e=>{if(e.key==="Enter"||e.key==="Tab"){e.preventDefault();if($("scan").value.trim()){$("qty").focus();$("qty").select();}}});
-$("qty").addEventListener("keydown",e=>{if(e.key==="Enter"||e.key==="Tab"){e.preventDefault();addScan();}});
+$("qty").addEventListener("keydown",e=>{if(e.key==="Enter"||e.key==="Tab"){e.preventDefault();if($("qty").value.trim()===""){return;}addScan();}});
 $("addBtn").onclick=addScan;
 
 /* ===== STEPPER QUANTITÉ (+/-) ===== */
@@ -2577,7 +2577,7 @@ $("plGtin").addEventListener("input",updatePreviewPL);
 $("plGtin").addEventListener("keydown",e=>{if(e.key==="Enter"||e.key==="Tab"){e.preventDefault();if($("plGtin").value.trim()){$("plUm").focus();$("plUm").select();}}});
 $("plUm").addEventListener("input",updatePreviewPL);
 $("plUm").addEventListener("keydown",e=>{if(e.key==="Enter"||e.key==="Tab"){e.preventDefault();if($("plUm").value.trim()){$("plQty").focus();$("plQty").select();}}});
-$("plQty").addEventListener("keydown",e=>{if(e.key==="Enter"||e.key==="Tab"){e.preventDefault();addScanPL();}});
+$("plQty").addEventListener("keydown",e=>{if(e.key==="Enter"||e.key==="Tab"){e.preventDefault();if($("plQty").value.trim()===""){return;}addScanPL();}});
 $("plAddBtn").onclick=addScanPL;
 
 function bumpQtyPL(delta){
